@@ -57,6 +57,7 @@ const Home = ({ user }: HomeProps) => {
         return;
       }
 
+      console.log('Sala geral encontrada:', data.id);
       setSalaGeral(data.id);
     } catch (error) {
       console.error('Erro ao buscar sala geral:', error);
@@ -119,6 +120,14 @@ const Home = ({ user }: HomeProps) => {
 
   const loading = campeonatosLoading || rodadasLoading || configLoading;
 
+  // Logs para debugging
+  useEffect(() => {
+    console.log('Campeonatos encontrados:', campeonatos.length);
+    console.log('Brasileirão encontrado:', brasileirao);
+    console.log('Rodadas carregadas:', rodadas.length);
+    console.log('Configurações:', configuracoes);
+  }, [campeonatos, brasileirao, rodadas, configuracoes]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -140,6 +149,20 @@ const Home = ({ user }: HomeProps) => {
       </div>
     );
   }
+
+  if (rodadas.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-yellow-600 mb-2">Nenhuma rodada encontrada</div>
+          <div className="text-gray-600">As rodadas do Brasileirão 2025 ainda não foram cadastradas</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Filtrar apenas rodadas que têm jogos
+  const rodadasComJogos = rodadas.filter(r => r.jogos && r.jogos.length > 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -170,7 +193,7 @@ const Home = ({ user }: HomeProps) => {
               <span>Campeonato Brasileiro 2025</span>
             </CardTitle>
             <CardDescription>
-              Aposte nos jogos das 38 rodadas do Brasileirão 2025
+              Aposte nos jogos das {rodadas.length} rodadas do Brasileirão 2025
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -188,6 +211,19 @@ const Home = ({ user }: HomeProps) => {
           </CardContent>
         </Card>
 
+        {/* Debug info */}
+        <Card className="mb-8 bg-blue-50">
+          <CardContent className="py-4">
+            <div className="text-sm text-blue-800">
+              <p><strong>Debug Info:</strong></p>
+              <p>• Rodadas total: {rodadas.length}</p>
+              <p>• Rodadas com jogos: {rodadasComJogos.length}</p>
+              <p>• Total de jogos: {rodadas.reduce((acc, r) => acc + (r.jogos?.length || 0), 0)}</p>
+              <p>• Sala geral ID: {salaGeral || 'Não encontrada'}</p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Rodadas do campeonato */}
         <div className="mb-8">
           <div className="flex items-center space-x-2 mb-6">
@@ -195,12 +231,18 @@ const Home = ({ user }: HomeProps) => {
             <h2 className="text-2xl font-bold text-gray-900">Rodadas do Brasileirão 2025</h2>
           </div>
           
-          <BrasileiroRoundCarousel
-            rodadas={rodadas}
-            configuracoes={configuracoes}
-            getUserApostasCount={getUserApostasCount}
-            onBet={handleBet}
-          />
+          {rodadasComJogos.length > 0 ? (
+            <BrasileiroRoundCarousel
+              rodadas={rodadasComJogos}
+              configuracoes={configuracoes}
+              getUserApostasCount={getUserApostasCount}
+              onBet={handleBet}
+            />
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Nenhuma rodada com jogos disponível no momento.</p>
+            </div>
+          )}
         </div>
 
         {/* Estatísticas rápidas */}

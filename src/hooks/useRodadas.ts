@@ -28,6 +28,8 @@ export const useRodadas = (campeonatoId?: string) => {
     if (!campeonatoId) return;
 
     try {
+      console.log('Buscando rodadas para campeonato:', campeonatoId);
+      
       const { data, error } = await supabase
         .from('rodadas')
         .select(`
@@ -49,6 +51,9 @@ export const useRodadas = (campeonatoId?: string) => {
         return;
       }
 
+      console.log('Rodadas encontradas:', data?.length);
+      console.log('Primeira rodada com jogos:', data?.[0]);
+      
       setRodadas(data || []);
     } catch (error) {
       console.error('Erro ao buscar rodadas:', error);
