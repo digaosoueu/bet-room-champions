@@ -28,7 +28,7 @@ const Home = ({ user }: HomeProps) => {
   // Buscar o Campeonato Brasileiro 2025
   const brasileirao = campeonatos.find(c => c.nome === 'Campeonato Brasileiro 2025');
   
-  const { rodadas, loading: rodadasLoading } = useRodadas(brasileirao?.id);
+  const { rodadas, loading: rodadasLoading, currentRoundIndex } = useRodadas(brasileirao?.id);
   const { configuracoes, loading: configLoading } = useConfiguracoes();
   const { apostas, createAposta, refetch: refetchApostas } = useApostas();
   
@@ -45,22 +45,86 @@ const Home = ({ user }: HomeProps) => {
     if (!brasileirao?.id) return;
 
     try {
+      console.log('Buscando sala geral para campeonato:', brasileirao.id);
+      
       const { data, error } = await supabase
         .from('salas')
-        .select('id')
+        .select('id, nome, tipo')
         .eq('campeonato_id', brasileirao.id)
         .eq('tipo', 'geral')
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Erro ao buscar sala geral:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível encontrar a sala geral do campeonato",
+          variant: "destructive"
+        });
         return;
       }
 
-      console.log('Sala geral encontrada:', data.id);
-      setSalaGeral(data.id);
+      if (data) {
+        console.log('Sala geral encontrada:', data);
+        setSalaGeral(data.id);
+        
+        // Verificar se o usuário já é participante da sala geral
+        await ensureUserInGeneralRoom(data.id);
+      } else {
+        console.log('Nenhuma sala geral encontrada');
+        toast({
+          title: "Aviso", 
+          description: "A sala geral do campeonato ainda não foi criada",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       console.error('Erro ao buscar sala geral:', error);
+    }
+  };
+
+  const ensureUserInGeneralRoom = async (salaId: string) => {
+    try {
+      // Buscar o ID do usuário na tabela usuarios
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', userData.user.id)
+        .single();
+
+      if (usuarioError || !usuarioData) {
+        console.error('Perfil do usuário não encontrado:', usuarioError);
+        return;
+      }
+
+      // Verificar se já é participante
+      const { data: participanteExists } = await supabase
+        .from('participantes')
+        .select('id')
+        .eq('usuario_id', usuarioData.id)
+        .eq('sala_id', salaId)
+        .maybeSingle();
+
+      if (!participanteExists) {
+        // Adicionar como participante da sala geral
+        const { error: insertError } = await supabase
+          .from('participantes')
+          .insert({
+            usuario_id: usuarioData.id,
+            sala_id: salaId
+          });
+
+        if (insertError) {
+          console.error('Erro ao adicionar usuário à sala geral:', insertError);
+        } else {
+          console.log('Usuário adicionado à sala geral com sucesso');
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar participação na sala geral:', error);
     }
   };
 
@@ -70,28 +134,43 @@ const Home = ({ user }: HomeProps) => {
 
   const handleBet = async (gameId: string, placar1: number, placar2: number, creditos: number) => {
     if (!salaGeral) {
-      throw new Error('Sala geral não encontrada');
-    }
-
-    // Verificar se usuário tem créditos suficientes
-    if (creditos > 0 && user.creditos < creditos) {
-      throw new Error('Créditos insuficientes');
-    }
-
-    // Verificar limite de apostas na rodada se necessário
-    const rodadaAtual = rodadas.find(r => r.jogos.some(j => j.id === gameId));
-    if (rodadaAtual) {
-      const apostasNaRodada = apostas.filter(a => 
-        rodadaAtual.jogos.some(j => j.id === a.jogo_id)
-      ).length;
-      
-      const limiteExtras = parseInt(configuracoes.limite_apostas_extras_por_rodada || '10');
-      if (apostasNaRodada >= limiteExtras) {
-        throw new Error(`Limite de ${limiteExtras} apostas por rodada atingido`);
-      }
+      toast({
+        title: "Erro",
+        description: "Sala geral não encontrada. Tente recarregar a página.",
+        variant: "destructive"
+      });
+      return;
     }
 
     try {
+      // Verificar se usuário tem créditos suficientes
+      if (creditos > 0 && user.creditos < creditos) {
+        toast({
+          title: "Créditos insuficientes",
+          description: `Você precisa de ${creditos} créditos para fazer esta aposta`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Verificar limite de apostas na rodada se necessário
+      const rodadaAtual = rodadas.find(r => r.jogos.some(j => j.id === gameId));
+      if (rodadaAtual) {
+        const apostasNaRodada = apostas.filter(a => 
+          rodadaAtual.jogos.some(j => j.id === a.jogo_id)
+        ).length;
+        
+        const limiteExtras = parseInt(configuracoes.limite_apostas_extras_por_rodada || '10');
+        if (apostasNaRodada >= limiteExtras) {
+          toast({
+            title: "Limite atingido",
+            description: `Limite de ${limiteExtras} apostas por rodada atingido`,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       await createAposta({
         jogo_id: gameId,
         sala_id: salaGeral,
@@ -113,8 +192,19 @@ const Home = ({ user }: HomeProps) => {
       }
 
       await refetchApostas();
+      
+      toast({
+        title: "Aposta realizada!",
+        description: `Aposta de ${placar1} x ${placar2} registrada com sucesso`,
+      });
+
     } catch (error: any) {
-      throw error;
+      console.error('Erro ao fazer aposta:', error);
+      toast({
+        title: "Erro ao apostar",
+        description: error.message || "Tente novamente",
+        variant: "destructive"
+      });
     }
   };
 
@@ -125,8 +215,9 @@ const Home = ({ user }: HomeProps) => {
     console.log('Campeonatos encontrados:', campeonatos.length);
     console.log('Brasileirão encontrado:', brasileirao);
     console.log('Rodadas carregadas:', rodadas.length);
+    console.log('Rodada atual (index):', currentRoundIndex);
     console.log('Configurações:', configuracoes);
-  }, [campeonatos, brasileirao, rodadas, configuracoes]);
+  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes]);
 
   if (loading) {
     return (
@@ -160,9 +251,6 @@ const Home = ({ user }: HomeProps) => {
       </div>
     );
   }
-
-  // Filtrar apenas rodadas que têm jogos
-  const rodadasComJogos = rodadas.filter(r => r.jogos && r.jogos.length > 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -217,7 +305,7 @@ const Home = ({ user }: HomeProps) => {
             <div className="text-sm text-blue-800">
               <p><strong>Debug Info:</strong></p>
               <p>• Rodadas total: {rodadas.length}</p>
-              <p>• Rodadas com jogos: {rodadasComJogos.length}</p>
+              <p>• Rodada atual: {currentRoundIndex + 1}</p>
               <p>• Total de jogos: {rodadas.reduce((acc, r) => acc + (r.jogos?.length || 0), 0)}</p>
               <p>• Sala geral ID: {salaGeral || 'Não encontrada'}</p>
             </div>
@@ -231,12 +319,13 @@ const Home = ({ user }: HomeProps) => {
             <h2 className="text-2xl font-bold text-gray-900">Rodadas do Brasileirão 2025</h2>
           </div>
           
-          {rodadasComJogos.length > 0 ? (
+          {rodadas.length > 0 ? (
             <BrasileiroRoundCarousel
-              rodadas={rodadasComJogos}
+              rodadas={rodadas}
               configuracoes={configuracoes}
               getUserApostasCount={getUserApostasCount}
               onBet={handleBet}
+              initialRoundIndex={currentRoundIndex}
             />
           ) : (
             <div className="text-center py-8">

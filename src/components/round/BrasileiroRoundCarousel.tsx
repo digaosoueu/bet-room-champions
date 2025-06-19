@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  CarouselApi,
 } from '@/components/ui/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GameBetCard from '@/components/game/GameBetCard';
@@ -19,7 +20,7 @@ interface Game {
   placar_oficial2?: number;
 }
 
-interface Rodada {
+interface Round {
   id: string;
   numero: number;
   data_inicio: string;
@@ -28,18 +29,33 @@ interface Rodada {
 }
 
 interface BrasileiroRoundCarouselProps {
-  rodadas: Rodada[];
-  configuracoes: Record<string, string>;
+  rodadas: Round[];
+  configuracoes: any;
   getUserApostasCount: (gameId: string) => number;
   onBet: (gameId: string, placar1: number, placar2: number, creditos: number) => Promise<void>;
+  initialRoundIndex?: number;
 }
 
 const BrasileiroRoundCarousel = ({ 
   rodadas, 
   configuracoes, 
   getUserApostasCount, 
-  onBet 
+  onBet,
+  initialRoundIndex = 0
 }: BrasileiroRoundCarouselProps) => {
+  const [api, setApi] = React.useState<CarouselApi>();
+
+  // Scroll to the initial round when component mounts or initialRoundIndex changes
+  useEffect(() => {
+    if (api && initialRoundIndex >= 0 && initialRoundIndex < rodadas.length) {
+      console.log('Definindo carrossel para rodada:', initialRoundIndex + 1);
+      // Use setTimeout to ensure the carousel is fully initialized
+      setTimeout(() => {
+        api.scrollTo(initialRoundIndex);
+      }, 100);
+    }
+  }, [api, initialRoundIndex, rodadas.length]);
+
   if (!rodadas || rodadas.length === 0) {
     return (
       <div className="text-center py-8">
@@ -49,29 +65,32 @@ const BrasileiroRoundCarousel = ({
   }
 
   return (
-    <Carousel className="w-full">
+    <Carousel 
+      className="w-full"
+      setApi={setApi}
+    >
       <CarouselContent>
-        {rodadas.map((rodada) => (
-          <CarouselItem key={rodada.id}>
+        {rodadas.map((round) => (
+          <CarouselItem key={round.id}>
             <Card>
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl font-bold text-emerald-600">
-                  {rodada.numero}ª Rodada
+                  Rodada {round.numero}
                 </CardTitle>
                 <p className="text-sm text-gray-600">
-                  {new Date(rodada.data_inicio).toLocaleDateString('pt-BR')} - {new Date(rodada.data_fim).toLocaleDateString('pt-BR')}
+                  {new Date(round.data_inicio).toLocaleDateString('pt-BR')} - {new Date(round.data_fim).toLocaleDateString('pt-BR')}
                 </p>
               </CardHeader>
               
               <CardContent>
-                {rodada.jogos && rodada.jogos.length > 0 ? (
+                {round.jogos && round.jogos.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {rodada.jogos.map((game) => (
+                    {round.jogos.map((game) => (
                       <GameBetCard
                         key={game.id}
                         game={game}
-                        apostasExistentes={getUserApostasCount(game.id)}
                         configuracoes={configuracoes}
+                        getUserApostasCount={getUserApostasCount}
                         onBet={onBet}
                       />
                     ))}
