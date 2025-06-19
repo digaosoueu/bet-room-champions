@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/layout/Navbar';
@@ -7,8 +6,9 @@ import Dashboard from '@/components/dashboard/Dashboard';
 import CreateRoomForm from '@/components/room/CreateRoomForm';
 import RoomView from '@/components/room/RoomView';
 import GlobalRanking from '@/components/ranking/GlobalRanking';
+import Home from '@/components/home/Home';
 
-type Page = 'login' | 'dashboard' | 'create-room' | 'room' | 'ranking';
+type Page = 'login' | 'home' | 'dashboard' | 'create-room' | 'room' | 'ranking';
 
 interface User {
   id: string;
@@ -36,7 +36,7 @@ const Index = () => {
     };
     
     setCurrentUser(mockUser);
-    setCurrentPage('dashboard');
+    setCurrentPage('home'); // Mudança aqui: ir direto para home em vez de dashboard
     
     toast({
       title: "Login realizado com sucesso!",
@@ -56,7 +56,7 @@ const Index = () => {
     };
     
     setCurrentUser(mockUser);
-    setCurrentPage('dashboard');
+    setCurrentPage('home'); // Mudança aqui: ir direto para home em vez de dashboard
     
     toast({
       title: "Conta criada com sucesso!",
@@ -97,6 +97,10 @@ const Index = () => {
     });
   };
 
+  const handleNavigate = (page: string) => {
+    setCurrentPage(page as Page);
+  };
+
   if (currentPage === 'login') {
     return (
       <LoginForm
@@ -113,7 +117,13 @@ const Index = () => {
           userName={currentUser.nome}
           credits={currentUser.creditos}
           onLogout={handleLogout}
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
         />
+      )}
+      
+      {currentPage === 'home' && currentUser && (
+        <Home user={currentUser} />
       )}
       
       {currentPage === 'dashboard' && currentUser && (

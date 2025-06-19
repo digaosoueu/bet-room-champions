@@ -1,15 +1,17 @@
 
 import React from 'react';
-import { LogOut, User, Coins } from 'lucide-react';
+import { LogOut, User, Coins, Home, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface NavbarProps {
   userName: string;
   credits: number;
   onLogout: () => void;
+  currentPage?: string;
+  onNavigate?: (page: string) => void;
 }
 
-const Navbar = ({ userName, credits, onLogout }: NavbarProps) => {
+const Navbar = ({ userName, credits, onLogout, currentPage, onNavigate }: NavbarProps) => {
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -18,6 +20,29 @@ const Navbar = ({ userName, credits, onLogout }: NavbarProps) => {
             <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
               BetRooms
             </h1>
+            
+            {onNavigate && (
+              <div className="flex items-center space-x-2 ml-8">
+                <Button
+                  variant={currentPage === 'home' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onNavigate('home')}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  <Home className="h-4 w-4 mr-2" />
+                  Home
+                </Button>
+                <Button
+                  variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onNavigate('dashboard')}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Salas
+                </Button>
+              </div>
+            )}
           </div>
           
           <div className="flex items-center space-x-4">
