@@ -11,7 +11,9 @@ interface Room {
   tipo: 'geral' | 'publica' | 'privada';
   valor_aposta: number;
   participantes_count: number;
-  campeonato: string;
+  campeonato: {
+    nome: string;
+  };
 }
 
 interface RoomCardProps {
@@ -52,7 +54,7 @@ const RoomCard = ({ room, onEnterRoom }: RoomCardProps) => {
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-lg font-semibold">{room.nome}</CardTitle>
-            <CardDescription className="text-sm text-gray-600">{room.campeonato}</CardDescription>
+            <CardDescription className="text-sm text-gray-600">{room.campeonato.nome}</CardDescription>
           </div>
           <Badge className={getRoomTypeColor(room.tipo)}>
             {getRoomTypeLabel(room.tipo)}
