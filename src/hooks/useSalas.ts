@@ -7,7 +7,7 @@ type Sala = Database['public']['Tables']['salas']['Row'] & {
   campeonato: {
     nome: string;
   };
-  participantes_count: number;
+  participantes_count?: number;
 };
 
 type SalaInput = Database['public']['Tables']['salas']['Insert'];
@@ -17,34 +17,44 @@ export const useSalas = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchSalas();
+    fetchUserSalas();
   }, []);
 
-  const fetchSalas = async () => {
+  const fetchUserSalas = async () => {
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      // Buscar o ID do usuário na tabela usuarios
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', userData.user.id)
+        .single();
+
+      if (usuarioError || !usuarioData) {
+        console.error('Perfil do usuário não encontrado:', usuarioError);
+        return;
+      }
+
+      // Buscar salas que o usuário participa
       const { data, error } = await supabase
-        .from('salas')
+        .from('participantes')
         .select(`
-          *,
-          campeonato:campeonatos(nome),
-          participantes(id)
+          sala:salas(
+            *,
+            campeonato:campeonatos(nome)
+          )
         `)
-        .order('created_at', { ascending: false });
+        .eq('usuario_id', usuarioData.id);
 
       if (error) {
         console.error('Erro ao buscar salas:', error);
         return;
       }
 
-      const salasFormatted = data?.map(sala => ({
-        ...sala,
-        campeonato: {
-          nome: sala.campeonato?.nome || 'Campeonato não encontrado'
-        },
-        participantes_count: sala.participantes?.length || 0
-      })) || [];
-
-      setSalas(salasFormatted);
+      const salasData = data?.map(p => p.sala).filter(Boolean) || [];
+      setSalas(salasData as Sala[]);
     } catch (error) {
       console.error('Erro ao buscar salas:', error);
     } finally {
@@ -82,11 +92,11 @@ export const useSalas = () => {
       throw error;
     }
 
-    await fetchSalas();
+    await fetchUserSalas();
     return data;
   };
 
-  const joinSala = async (salaId: string) => {
+  const joinSala = async (salaId: string, codigo?: string) => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       throw new Error('Usuário não autenticado');
@@ -95,7 +105,7 @@ export const useSalas = () => {
     // Buscar o ID do usuário na tabela usuarios
     const { data: usuarioData, error: usuarioError } = await supabase
       .from('usuarios')
-      .select('id')
+      .select('id, creditos')
       .eq('auth_user_id', userData.user.id)
       .single();
 
@@ -103,18 +113,54 @@ export const useSalas = () => {
       throw new Error('Perfil do usuário não encontrado');
     }
 
-    const { error } = await supabase
+    // Buscar dados da sala
+    const { data: salaData, error: salaError } = await supabase
+      .from('salas')
+      .select('*')
+      .eq('id', salaId)
+      .single();
+
+    if (salaError || !salaData) {
+      throw new Error('Sala não encontrada');
+    }
+
+    // Verificar se é sala privada e se o código está correto
+    if (salaData.tipo === 'privada' && salaData.codigo_acesso !== codigo) {
+      throw new Error('Código de acesso inválido');
+    }
+
+    // Verificar se o usuário tem créditos suficientes para salas pagas
+    if (salaData.tipo !== 'geral' && usuarioData.creditos < salaData.valor_aposta) {
+      throw new Error('Créditos insuficientes');
+    }
+
+    // Adicionar usuário como participante
+    const { error: participanteError } = await supabase
       .from('participantes')
       .insert({
         usuario_id: usuarioData.id,
         sala_id: salaId
       });
 
-    if (error) {
-      throw error;
+    if (participanteError) {
+      throw participanteError;
     }
 
-    await fetchSalas();
+    // Debitar créditos se for sala paga
+    if (salaData.tipo !== 'geral') {
+      const { error: creditoError } = await supabase
+        .from('usuarios')
+        .update({
+          creditos: usuarioData.creditos - salaData.valor_aposta
+        })
+        .eq('id', usuarioData.id);
+
+      if (creditoError) {
+        throw creditoError;
+      }
+    }
+
+    await fetchUserSalas();
   };
 
   return {
@@ -122,6 +168,6 @@ export const useSalas = () => {
     loading,
     createSala,
     joinSala,
-    refetch: fetchSalas
+    refetch: fetchUserSalas
   };
 };

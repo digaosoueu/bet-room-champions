@@ -4,23 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Users, Trophy, Coins } from 'lucide-react';
 import RoomCard from './RoomCard';
+import { useSalas } from '@/hooks/useSalas';
 
 interface User {
   id: string;
   nome: string;
   email: string;
   creditos: number;
-}
-
-interface DashboardRoom {
-  id: string;
-  nome: string;
-  tipo: 'geral' | 'publica' | 'privada';
-  valor_aposta: number;
-  participantes_count: number;
-  campeonato: {
-    nome: string;
-  };
 }
 
 interface DashboardProps {
@@ -32,39 +22,17 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ user, onCreateRoom, onJoinRoom, onViewRanking, onEnterRoom }: DashboardProps) => {
-  // Dados mock para demonstração
-  const [userRooms] = useState<DashboardRoom[]>([
-    {
-      id: '1',
-      nome: 'Brasileirão 2024',
-      tipo: 'geral',
-      valor_aposta: 100,
-      participantes_count: 1247,
-      campeonato: {
-        nome: 'Campeonato Brasileiro 2024'
-      }
-    },
-    {
-      id: '2',
-      nome: 'Sala dos Amigos',
-      tipo: 'privada',
-      valor_aposta: 50,
-      participantes_count: 8,
-      campeonato: {
-        nome: 'Campeonato Brasileiro 2024'
-      }
-    },
-    {
-      id: '3',
-      nome: 'Champions League',
-      tipo: 'publica',
-      valor_aposta: 200,
-      participantes_count: 342,
-      campeonato: {
-        nome: 'UEFA Champions League 2024'
-      }
-    }
-  ]);
+  const { salas: userRooms, loading } = useSalas();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-emerald-600 mb-2">Carregando...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

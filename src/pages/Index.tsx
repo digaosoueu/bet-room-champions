@@ -6,6 +6,7 @@ import AuthPage from '@/components/auth/AuthPage';
 import Dashboard from '@/components/dashboard/Dashboard';
 import CreateRoomForm from '@/components/room/CreateRoomForm';
 import RoomView from '@/components/room/RoomView';
+import JoinRoomDialog from '@/components/room/JoinRoomDialog';
 import GlobalRanking from '@/components/ranking/GlobalRanking';
 import Home from '@/components/home/Home';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +16,7 @@ type Page = 'home' | 'dashboard' | 'create-room' | 'room' | 'ranking';
 const Index = () => {
   const [currentPage, setCurrentPage] = React.useState<Page>('home');
   const [currentRoomId, setCurrentRoomId] = React.useState<string>('');
+  const [showJoinDialog, setShowJoinDialog] = React.useState(false);
   const { toast } = useToast();
   const { user, userProfile, loading, signOut } = useAuth();
 
@@ -38,12 +40,6 @@ const Index = () => {
 
   const handleCreateRoom = (roomData: any) => {
     console.log('Creating room:', roomData);
-    
-    toast({
-      title: "Sala criada com sucesso!",
-      description: `A sala "${roomData.nome}" foi criada e você já está participando.`,
-    });
-    
     setCurrentPage('dashboard');
   };
 
@@ -53,10 +49,11 @@ const Index = () => {
   };
 
   const handleJoinRoom = () => {
-    toast({
-      title: "Funcionalidade em desenvolvimento",
-      description: "A funcionalidade de entrar com código estará disponível em breve!",
-    });
+    setShowJoinDialog(true);
+  };
+
+  const handleJoinSuccess = () => {
+    setCurrentPage('dashboard');
   };
 
   const handleNavigate = (page: string) => {
@@ -124,6 +121,12 @@ const Index = () => {
           onBack={() => setCurrentPage('dashboard')}
         />
       )}
+
+      <JoinRoomDialog
+        open={showJoinDialog}
+        onOpenChange={setShowJoinDialog}
+        onJoinSuccess={handleJoinSuccess}
+      />
     </div>
   );
 };

@@ -6,29 +6,62 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
+import { useCampeonatos } from '@/hooks/useCampeonatos';
+import { useSalas } from '@/hooks/useSalas';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreateRoomFormProps {
   onBack: () => void;
-  onCreateRoom: (roomData: {
-    nome: string;
-    tipo: 'geral' | 'publica' | 'privada';
-    valor_aposta: number;
-    campeonato: string;
-  }) => void;
+  onCreateRoom: (roomData: any) => void;
 }
 
 const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
+  const { campeonatos, loading: campeonatosLoading } = useCampeonatos();
+  const { createSala } = useSalas();
+  const { toast } = useToast();
+  
   const [formData, setFormData] = useState({
     nome: '',
     tipo: '' as 'geral' | 'publica' | 'privada',
     valor_aposta: 100,
-    campeonato: ''
+    campeonato_id: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.nome && formData.tipo && formData.campeonato) {
+    if (!formData.nome || !formData.tipo || !formData.campeonato_id) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createSala({
+        nome: formData.nome,
+        tipo: formData.tipo,
+        valor_aposta: formData.valor_aposta,
+        campeonato_id: formData.campeonato_id
+      });
+
+      toast({
+        title: "Sala criada com sucesso!",
+        description: `A sala "${formData.nome}" foi criada e você já está participando.`,
+      });
+
       onCreateRoom(formData);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar sala",
+        description: error.message || "Ocorreu um erro inesperado.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -105,18 +138,23 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
               <div className="space-y-2">
                 <Label htmlFor="campeonato">Campeonato</Label>
                 <Select
-                  value={formData.campeonato}
-                  onValueChange={(value) => setFormData({ ...formData, campeonato: value })}
+                  value={formData.campeonato_id}
+                  onValueChange={(value) => setFormData({ ...formData, campeonato_id: value })}
                   required
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o campeonato" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="brasileirao-2024">Campeonato Brasileiro 2024</SelectItem>
-                    <SelectItem value="champions-2024">UEFA Champions League 2024</SelectItem>
-                    <SelectItem value="libertadores-2024">Copa Libertadores 2024</SelectItem>
-                    <SelectItem value="copa-brasil-2024">Copa do Brasil 2024</SelectItem>
+                    {campeonatosLoading ? (
+                      <SelectItem value="" disabled>Carregando...</SelectItem>
+                    ) : (
+                      campeonatos.map((campeonato) => (
+                        <SelectItem key={campeonato.id} value={campeonato.id}>
+                          {campeonato.nome} - {campeonato.temporada}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -127,14 +165,16 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
                   variant="outline"
                   onClick={onBack}
                   className="flex-1"
+                  disabled={isSubmitting}
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  disabled={isSubmitting}
                 >
-                  Criar Sala
+                  {isSubmitting ? 'Criando...' : 'Criar Sala'}
                 </Button>
               </div>
             </form>
