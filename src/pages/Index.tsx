@@ -1,76 +1,39 @@
-import React, { useState } from 'react';
+
+import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/layout/Navbar';
-import LoginForm from '@/components/auth/LoginForm';
+import AuthPage from '@/components/auth/AuthPage';
 import Dashboard from '@/components/dashboard/Dashboard';
 import CreateRoomForm from '@/components/room/CreateRoomForm';
 import RoomView from '@/components/room/RoomView';
 import GlobalRanking from '@/components/ranking/GlobalRanking';
 import Home from '@/components/home/Home';
+import { useAuth } from '@/hooks/useAuth';
 
-type Page = 'login' | 'home' | 'dashboard' | 'create-room' | 'room' | 'ranking';
-
-interface User {
-  id: string;
-  nome: string;
-  email: string;
-  creditos: number;
-}
+type Page = 'home' | 'dashboard' | 'create-room' | 'room' | 'ranking';
 
 const Index = () => {
-  const [currentPage, setCurrentPage] = useState<Page>('login');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentRoomId, setCurrentRoomId] = useState<string>('');
+  const [currentPage, setCurrentPage] = React.useState<Page>('home');
+  const [currentRoomId, setCurrentRoomId] = React.useState<string>('');
   const { toast } = useToast();
+  const { user, userProfile, loading, signOut } = useAuth();
 
-  const handleLogin = (email: string, password: string) => {
-    // Simulação de login - em uma aplicação real, isso seria conectado ao backend
-    console.log('Login attempt:', { email, password });
+  const handleLogout = async () => {
+    const { error } = await signOut();
     
-    // Mock user data
-    const mockUser: User = {
-      id: '1',
-      nome: 'João Silva',
-      email: email,
-      creditos: 2500
-    };
-    
-    setCurrentUser(mockUser);
-    setCurrentPage('home'); // Mudança aqui: ir direto para home em vez de dashboard
-    
-    toast({
-      title: "Login realizado com sucesso!",
-      description: `Bem-vindo de volta, ${mockUser.nome}!`,
-    });
-  };
-
-  const handleRegister = (name: string, email: string, password: string) => {
-    // Simulação de registro
-    console.log('Register attempt:', { name, email, password });
-    
-    const mockUser: User = {
-      id: '1',
-      nome: name,
-      email: email,
-      creditos: 1000 // Créditos iniciais
-    };
-    
-    setCurrentUser(mockUser);
-    setCurrentPage('home'); // Mudança aqui: ir direto para home em vez de dashboard
-    
-    toast({
-      title: "Conta criada com sucesso!",
-      description: `Bem-vindo, ${mockUser.nome}! Você ganhou 1000 créditos iniciais.`,
-    });
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setCurrentPage('login');
-    toast({
-      title: "Logout realizado",
-      description: "Até mais!",
-    });
+    if (error) {
+      toast({
+        title: "Erro no logout",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setCurrentPage('home');
+      toast({
+        title: "Logout realizado",
+        description: "Até mais!",
+      });
+    }
   };
 
   const handleCreateRoom = (roomData: any) => {
@@ -81,7 +44,6 @@ const Index = () => {
       description: `A sala "${roomData.nome}" foi criada e você já está participando.`,
     });
     
-    // Simular que a sala foi criada e voltar ao dashboard
     setCurrentPage('dashboard');
   };
 
@@ -101,34 +63,41 @@ const Index = () => {
     setCurrentPage(page as Page);
   };
 
-  if (currentPage === 'login') {
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
     return (
-      <LoginForm
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-      />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-emerald-600 mb-2">BetRooms</div>
+          <div className="text-gray-600">Carregando...</div>
+        </div>
+      </div>
     );
   }
 
+  // Se não estiver autenticado, mostrar página de login
+  if (!user || !userProfile) {
+    return <AuthPage />;
+  }
+
+  // Se estiver autenticado, mostrar aplicação
   return (
     <div className="min-h-screen bg-gray-50">
-      {currentUser && (
-        <Navbar
-          userName={currentUser.nome}
-          credits={currentUser.creditos}
-          onLogout={handleLogout}
-          currentPage={currentPage}
-          onNavigate={handleNavigate}
-        />
+      <Navbar
+        userName={userProfile.nome}
+        credits={userProfile.creditos}
+        onLogout={handleLogout}
+        currentPage={currentPage}
+        onNavigate={handleNavigate}
+      />
+      
+      {currentPage === 'home' && (
+        <Home user={userProfile} />
       )}
       
-      {currentPage === 'home' && currentUser && (
-        <Home user={currentUser} />
-      )}
-      
-      {currentPage === 'dashboard' && currentUser && (
+      {currentPage === 'dashboard' && (
         <Dashboard
-          user={currentUser}
+          user={userProfile}
           onCreateRoom={() => setCurrentPage('create-room')}
           onJoinRoom={handleJoinRoom}
           onViewRanking={() => setCurrentPage('ranking')}
