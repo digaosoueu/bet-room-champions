@@ -47,6 +47,7 @@ const Home = ({ user }: HomeProps) => {
     try {
       console.log('Buscando sala geral para campeonato:', brasileirao.id);
       
+      // Buscar sala geral baseada apenas no campeonato e tipo
       const { data, error } = await supabase
         .from('salas')
         .select('id, nome, tipo')
@@ -71,7 +72,7 @@ const Home = ({ user }: HomeProps) => {
         // Verificar se o usuário já é participante da sala geral
         await ensureUserInGeneralRoom(data.id);
       } else {
-        console.log('Nenhuma sala geral encontrada');
+        console.log('Nenhuma sala geral encontrada para o campeonato');
         toast({
           title: "Aviso", 
           description: "A sala geral do campeonato ainda não foi criada",
@@ -217,7 +218,8 @@ const Home = ({ user }: HomeProps) => {
     console.log('Rodadas carregadas:', rodadas.length);
     console.log('Rodada atual (index):', currentRoundIndex);
     console.log('Configurações:', configuracoes);
-  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes]);
+    console.log('Sala geral ID:', salaGeral);
+  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral]);
 
   if (loading) {
     return (
@@ -308,6 +310,7 @@ const Home = ({ user }: HomeProps) => {
               <p>• Rodada atual: {currentRoundIndex + 1}</p>
               <p>• Total de jogos: {rodadas.reduce((acc, r) => acc + (r.jogos?.length || 0), 0)}</p>
               <p>• Sala geral ID: {salaGeral || 'Não encontrada'}</p>
+              <p>• Campeonato ID: {brasileirao?.id || 'Não encontrado'}</p>
             </div>
           </CardContent>
         </Card>
