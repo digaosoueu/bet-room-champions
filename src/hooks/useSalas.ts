@@ -7,7 +7,7 @@ type Sala = Database['public']['Tables']['salas']['Row'] & {
   campeonato: {
     nome: string;
   };
-  participantes_count?: number;
+  participantes_count: number;
 };
 
 type SalaInput = Database['public']['Tables']['salas']['Insert'];
@@ -37,7 +37,7 @@ export const useSalas = () => {
         return;
       }
 
-      // Buscar salas que o usuário participa
+      // Buscar salas que o usuário participa com contagem de participantes
       const { data, error } = await supabase
         .from('participantes')
         .select(`
@@ -53,8 +53,22 @@ export const useSalas = () => {
         return;
       }
 
-      const salasData = data?.map(p => p.sala).filter(Boolean) || [];
-      setSalas(salasData as Sala[]);
+      const salasWithCount = await Promise.all(
+        (data?.map(p => p.sala).filter(Boolean) || []).map(async (sala: any) => {
+          // Contar participantes para cada sala
+          const { count } = await supabase
+            .from('participantes')
+            .select('*', { count: 'exact', head: true })
+            .eq('sala_id', sala.id);
+
+          return {
+            ...sala,
+            participantes_count: count || 0
+          };
+        })
+      );
+
+      setSalas(salasWithCount as Sala[]);
     } catch (error) {
       console.error('Erro ao buscar salas:', error);
     } finally {
