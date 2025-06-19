@@ -1,12 +1,16 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Calendar, Trophy } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Calendar } from 'lucide-react';
 import BrasileiroRoundCarousel from '@/components/round/BrasileiroRoundCarousel';
+import HomeHeader from '@/components/home/HomeHeader';
+import ChampionshipInfo from '@/components/home/ChampionshipInfo';
+import QuickStats from '@/components/home/QuickStats';
+import DebugInfo from '@/components/home/DebugInfo';
 import { useRodadas } from '@/hooks/useRodadas';
 import { useConfiguracoes } from '@/hooks/useConfiguracoes';
 import { useCampeonatos } from '@/hooks/useCampeonatos';
 import { useApostas } from '@/hooks/useApostas';
+import { useGeneralRoom } from '@/hooks/useGeneralRoom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -30,104 +34,8 @@ const Home = ({ user }: HomeProps) => {
   
   const { rodadas, loading: rodadasLoading, currentRoundIndex } = useRodadas(brasileirao?.id);
   const { configuracoes, loading: configLoading } = useConfiguracoes();
+  const { salaGeral } = useGeneralRoom(brasileirao?.id);
   const { apostas, createAposta, refetch: refetchApostas } = useApostas();
-  
-  const [salaGeral, setSalaGeral] = useState<string>('');
-
-  // Buscar sala geral do brasileirão
-  useEffect(() => {
-    if (brasileirao?.id) {
-      fetchSalaGeral();
-    }
-  }, [brasileirao?.id]);
-
-  const fetchSalaGeral = async () => {
-    if (!brasileirao?.id) return;
-
-    try {
-      console.log('Buscando sala geral para campeonato:', brasileirao.id);
-      
-      // Buscar sala geral baseada apenas no campeonato e tipo
-      const { data, error } = await supabase
-        .from('salas')
-        .select('id, nome, tipo')
-        .eq('campeonato_id', brasileirao.id)
-        .eq('tipo', 'geral')
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao buscar sala geral:', error);
-        toast({
-          title: "Erro",
-          description: "Não foi possível encontrar a sala geral do campeonato",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (data) {
-        console.log('Sala geral encontrada:', data);
-        setSalaGeral(data.id);
-        
-        // Verificar se o usuário já é participante da sala geral
-        await ensureUserInGeneralRoom(data.id);
-      } else {
-        console.log('Nenhuma sala geral encontrada para o campeonato');
-        toast({
-          title: "Aviso", 
-          description: "A sala geral do campeonato ainda não foi criada",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao buscar sala geral:', error);
-    }
-  };
-
-  const ensureUserInGeneralRoom = async (salaId: string) => {
-    try {
-      // Buscar o ID do usuário na tabela usuarios
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const { data: usuarioData, error: usuarioError } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('auth_user_id', userData.user.id)
-        .single();
-
-      if (usuarioError || !usuarioData) {
-        console.error('Perfil do usuário não encontrado:', usuarioError);
-        return;
-      }
-
-      // Verificar se já é participante
-      const { data: participanteExists } = await supabase
-        .from('participantes')
-        .select('id')
-        .eq('usuario_id', usuarioData.id)
-        .eq('sala_id', salaId)
-        .maybeSingle();
-
-      if (!participanteExists) {
-        // Adicionar como participante da sala geral
-        const { error: insertError } = await supabase
-          .from('participantes')
-          .insert({
-            usuario_id: usuarioData.id,
-            sala_id: salaId
-          });
-
-        if (insertError) {
-          console.error('Erro ao adicionar usuário à sala geral:', insertError);
-        } else {
-          console.log('Usuário adicionado à sala geral com sucesso');
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao verificar participação na sala geral:', error);
-    }
-  };
 
   const getUserApostasCount = (gameId: string) => {
     return apostas.filter(aposta => aposta.jogo_id === gameId).length;
@@ -254,66 +162,25 @@ const Home = ({ user }: HomeProps) => {
     );
   }
 
+  const totalJogos = rodadas.reduce((acc, r) => acc + (r.jogos?.length || 0), 0);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header de boas-vindas */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Bem-vindo ao BetRooms, {user.nome}! ⚽
-          </h1>
-          <p className="text-lg text-gray-600 mb-4">
-            Faça suas apostas no Campeonato Brasileiro 2025
-          </p>
-          
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2 bg-emerald-50 px-4 py-2 rounded-lg">
-              <Coins className="h-5 w-5 text-emerald-600" />
-              <span className="font-semibold text-emerald-700">{user.creditos}</span>
-              <span className="text-sm text-emerald-600">créditos</span>
-            </div>
-          </div>
-        </div>
+        <HomeHeader user={user} />
+        
+        <ChampionshipInfo 
+          rodadasCount={rodadas.length} 
+          configuracoes={configuracoes} 
+        />
 
-        {/* Informações do campeonato */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Trophy className="h-5 w-5 text-emerald-600" />
-              <span>Campeonato Brasileiro 2025</span>
-            </CardTitle>
-            <CardDescription>
-              Aposte nos jogos das {rodadas.length} rodadas do Brasileirão 2025
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-medium">1ª aposta:</span> Grátis
-              </div>
-              <div>
-                <span className="font-medium">2ª aposta:</span> {configuracoes.valor_segunda_aposta || '50'} créditos
-              </div>
-              <div>
-                <span className="font-medium">3ª aposta:</span> {configuracoes.valor_terceira_aposta || '100'} créditos
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Debug info */}
-        <Card className="mb-8 bg-blue-50">
-          <CardContent className="py-4">
-            <div className="text-sm text-blue-800">
-              <p><strong>Debug Info:</strong></p>
-              <p>• Rodadas total: {rodadas.length}</p>
-              <p>• Rodada atual: {currentRoundIndex + 1}</p>
-              <p>• Total de jogos: {rodadas.reduce((acc, r) => acc + (r.jogos?.length || 0), 0)}</p>
-              <p>• Sala geral ID: {salaGeral || 'Não encontrada'}</p>
-              <p>• Campeonato ID: {brasileirao?.id || 'Não encontrado'}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <DebugInfo
+          rodadasCount={rodadas.length}
+          currentRoundIndex={currentRoundIndex}
+          totalJogos={totalJogos}
+          salaGeralId={salaGeral}
+          campeonatoId={brasileirao?.id || ''}
+        />
 
         {/* Rodadas do campeonato */}
         <div className="mb-8">
@@ -337,35 +204,7 @@ const Home = ({ user }: HomeProps) => {
           )}
         </div>
 
-        {/* Estatísticas rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="flex items-center justify-center p-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-emerald-600 mb-1">{apostas.length}</div>
-                <div className="text-sm text-gray-600">Apostas Realizadas</div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="flex items-center justify-center p-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600 mb-1">0</div>
-                <div className="text-sm text-gray-600">Apostas Ganhas</div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="flex items-center justify-center p-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600 mb-1">-</div>
-                <div className="text-sm text-gray-600">Taxa de Acerto</div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <QuickStats apostasCount={apostas.length} />
       </div>
     </div>
   );
