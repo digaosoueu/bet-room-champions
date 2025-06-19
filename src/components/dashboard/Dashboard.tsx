@@ -12,13 +12,15 @@ interface User {
   creditos: number;
 }
 
-interface Room {
+interface DashboardRoom {
   id: string;
   nome: string;
   tipo: 'geral' | 'publica' | 'privada';
   valor_aposta: number;
   participantes_count: number;
-  campeonato: string;
+  campeonato: {
+    nome: string;
+  };
 }
 
 interface DashboardProps {
@@ -31,14 +33,16 @@ interface DashboardProps {
 
 const Dashboard = ({ user, onCreateRoom, onJoinRoom, onViewRanking, onEnterRoom }: DashboardProps) => {
   // Dados mock para demonstração
-  const [userRooms] = useState<Room[]>([
+  const [userRooms] = useState<DashboardRoom[]>([
     {
       id: '1',
       nome: 'Brasileirão 2024',
       tipo: 'geral',
       valor_aposta: 100,
       participantes_count: 1247,
-      campeonato: 'Campeonato Brasileiro 2024'
+      campeonato: {
+        nome: 'Campeonato Brasileiro 2024'
+      }
     },
     {
       id: '2',
@@ -46,7 +50,9 @@ const Dashboard = ({ user, onCreateRoom, onJoinRoom, onViewRanking, onEnterRoom 
       tipo: 'privada',
       valor_aposta: 50,
       participantes_count: 8,
-      campeonato: 'Campeonato Brasileiro 2024'
+      campeonato: {
+        nome: 'Campeonato Brasileiro 2024'
+      }
     },
     {
       id: '3',
@@ -54,7 +60,9 @@ const Dashboard = ({ user, onCreateRoom, onJoinRoom, onViewRanking, onEnterRoom 
       tipo: 'publica',
       valor_aposta: 200,
       participantes_count: 342,
-      campeonato: 'UEFA Champions League 2024'
+      campeonato: {
+        nome: 'UEFA Champions League 2024'
+      }
     }
   ]);
 
