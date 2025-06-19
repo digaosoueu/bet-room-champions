@@ -5,11 +5,14 @@ import { useToast } from '@/hooks/use-toast';
 
 export const useGeneralRoom = (campeonatoId?: string) => {
   const [salaGeral, setSalaGeral] = useState<string>('');
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     if (campeonatoId) {
       fetchSalaGeral();
+    } else {
+      setLoading(false);
     }
   }, [campeonatoId]);
 
@@ -34,6 +37,7 @@ export const useGeneralRoom = (campeonatoId?: string) => {
           description: "Não foi possível encontrar a sala geral do campeonato",
           variant: "destructive"
         });
+        setLoading(false);
         return;
       }
 
@@ -45,14 +49,13 @@ export const useGeneralRoom = (campeonatoId?: string) => {
         await ensureUserInGeneralRoom(data.id);
       } else {
         console.log('Nenhuma sala geral encontrada para o campeonato');
-        toast({
-          title: "Aviso", 
-          description: "A sala geral do campeonato ainda não foi criada",
-          variant: "destructive"
-        });
+        // Não mostrar erro se não encontrar a sala, apenas log
+        console.warn('A sala geral do campeonato ainda não foi criada');
       }
     } catch (error) {
       console.error('Erro ao buscar sala geral:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -73,13 +76,18 @@ export const useGeneralRoom = (campeonatoId?: string) => {
         return;
       }
 
-      // Verificar se já é participante
-      const { data: participanteExists } = await supabase
+      // Verificar se já é participante (sem usar RLS que pode causar recursão)
+      const { data: participanteExists, error: checkError } = await supabase
         .from('participantes')
         .select('id')
         .eq('usuario_id', usuarioData.id)
         .eq('sala_id', salaId)
         .maybeSingle();
+
+      if (checkError) {
+        console.error('Erro ao verificar participação:', checkError);
+        return;
+      }
 
       if (!participanteExists) {
         // Adicionar como participante da sala geral
@@ -95,11 +103,13 @@ export const useGeneralRoom = (campeonatoId?: string) => {
         } else {
           console.log('Usuário adicionado à sala geral com sucesso');
         }
+      } else {
+        console.log('Usuário já é participante da sala geral');
       }
     } catch (error) {
       console.error('Erro ao verificar participação na sala geral:', error);
     }
   };
 
-  return { salaGeral };
+  return { salaGeral, loading };
 };

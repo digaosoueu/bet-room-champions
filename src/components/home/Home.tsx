@@ -34,8 +34,8 @@ const Home = ({ user }: HomeProps) => {
   
   const { rodadas, loading: rodadasLoading, currentRoundIndex } = useRodadas(brasileirao?.id);
   const { configuracoes, loading: configLoading } = useConfiguracoes();
-  const { salaGeral } = useGeneralRoom(brasileirao?.id);
-  const { apostas, createAposta, refetch: refetchApostas } = useApostas();
+  const { salaGeral, loading: salaLoading } = useGeneralRoom(brasileirao?.id);
+  const { apostas, createAposta, refetch: refetchApostas } = useApostas(salaGeral);
 
   const getUserApostasCount = (gameId: string) => {
     return apostas.filter(aposta => aposta.jogo_id === gameId).length;
@@ -52,6 +52,8 @@ const Home = ({ user }: HomeProps) => {
     }
 
     try {
+      console.log('Iniciando aposta:', { gameId, placar1, placar2, creditos, salaGeral });
+
       // Verificar se usuário tem créditos suficientes
       if (creditos > 0 && user.creditos < creditos) {
         toast({
@@ -80,6 +82,7 @@ const Home = ({ user }: HomeProps) => {
         }
       }
 
+      // Criar a aposta
       await createAposta({
         jogo_id: gameId,
         sala_id: salaGeral,
@@ -100,8 +103,6 @@ const Home = ({ user }: HomeProps) => {
         }
       }
 
-      await refetchApostas();
-      
       toast({
         title: "Aposta realizada!",
         description: `Aposta de ${placar1} x ${placar2} registrada com sucesso`,
@@ -117,7 +118,7 @@ const Home = ({ user }: HomeProps) => {
     }
   };
 
-  const loading = campeonatosLoading || rodadasLoading || configLoading;
+  const loading = campeonatosLoading || rodadasLoading || configLoading || salaLoading;
 
   // Logs para debugging
   useEffect(() => {
@@ -127,7 +128,8 @@ const Home = ({ user }: HomeProps) => {
     console.log('Rodada atual (index):', currentRoundIndex);
     console.log('Configurações:', configuracoes);
     console.log('Sala geral ID:', salaGeral);
-  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral]);
+    console.log('Apostas carregadas:', apostas.length);
+  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral, apostas]);
 
   if (loading) {
     return (
@@ -157,6 +159,17 @@ const Home = ({ user }: HomeProps) => {
         <div className="text-center">
           <div className="text-2xl font-bold text-yellow-600 mb-2">Nenhuma rodada encontrada</div>
           <div className="text-gray-600">As rodadas do Brasileirão 2025 ainda não foram cadastradas</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!salaGeral) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-yellow-600 mb-2">Sala geral não encontrada</div>
+          <div className="text-gray-600">A sala geral do campeonato ainda não foi criada</div>
         </div>
       </div>
     );

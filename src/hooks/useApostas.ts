@@ -13,6 +13,8 @@ export const useApostas = (salaId?: string) => {
   useEffect(() => {
     if (salaId) {
       fetchApostas();
+    } else {
+      setLoading(false);
     }
   }, [salaId]);
 
@@ -20,10 +22,33 @@ export const useApostas = (salaId?: string) => {
     if (!salaId) return;
 
     try {
+      console.log('Buscando apostas para sala:', salaId);
+      
+      // Buscar o ID do usuário na tabela usuarios
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        console.log('Usuário não autenticado');
+        setLoading(false);
+        return;
+      }
+
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', userData.user.id)
+        .single();
+
+      if (usuarioError || !usuarioData) {
+        console.error('Perfil do usuário não encontrado:', usuarioError);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('apostas')
         .select('*')
         .eq('sala_id', salaId)
+        .eq('usuario_id', usuarioData.id)
         .order('data_aposta', { ascending: false });
 
       if (error) {
@@ -31,6 +56,7 @@ export const useApostas = (salaId?: string) => {
         return;
       }
 
+      console.log('Apostas encontradas:', data?.length || 0);
       setApostas(data || []);
     } catch (error) {
       console.error('Erro ao buscar apostas:', error);
@@ -56,6 +82,8 @@ export const useApostas = (salaId?: string) => {
       throw new Error('Perfil do usuário não encontrado');
     }
 
+    console.log('Criando aposta:', { ...apostaData, usuario_id: usuarioData.id });
+
     const { data, error } = await supabase
       .from('apostas')
       .insert({
@@ -66,9 +94,11 @@ export const useApostas = (salaId?: string) => {
       .single();
 
     if (error) {
+      console.error('Erro ao criar aposta:', error);
       throw error;
     }
 
+    console.log('Aposta criada com sucesso:', data);
     await fetchApostas();
     return data;
   };
