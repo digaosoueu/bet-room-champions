@@ -1,12 +1,14 @@
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Trophy, Coins, Calendar } from 'lucide-react';
-import RoundCarousel from '@/components/round/RoundCarousel';
+import { Coins, Calendar, Trophy } from 'lucide-react';
+import BrasileiroRoundCarousel from '@/components/round/BrasileiroRoundCarousel';
+import { useRodadas } from '@/hooks/useRodadas';
+import { useConfiguracoes } from '@/hooks/useConfiguracoes';
+import { useCampeonatos } from '@/hooks/useCampeonatos';
+import { useApostas } from '@/hooks/useApostas';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: string;
@@ -20,77 +22,124 @@ interface HomeProps {
 }
 
 const Home = ({ user }: HomeProps) => {
-  const [valorAposta, setValorAposta] = useState<number>(100);
   const { toast } = useToast();
+  const { campeonatos, loading: campeonatosLoading } = useCampeonatos();
+  
+  // Buscar o Campeonato Brasileiro 2025
+  const brasileirao = campeonatos.find(c => c.nome === 'Campeonato Brasileiro 2025');
+  
+  const { rodadas, loading: rodadasLoading } = useRodadas(brasileirao?.id);
+  const { configuracoes, loading: configLoading } = useConfiguracoes();
+  const { apostas, createAposta, refetch: refetchApostas } = useApostas();
+  
+  const [salaGeral, setSalaGeral] = useState<string>('');
 
-  // Dados mock das rodadas - em uma aplicação real viriam do Supabase
-  const rounds = [
-    {
-      id: '1',
-      numero: 1,
-      data_inicio: '2024-01-15',
-      data_fim: '2024-01-21',
-      jogos: [
-        {
-          id: '1',
-          time1: 'Flamengo',
-          time2: 'Vasco',
-          data_jogo: '2024-01-15T16:00:00',
-          placar_oficial1: undefined,
-          placar_oficial2: undefined
-        },
-        {
-          id: '2',
-          time1: 'Palmeiras',
-          time2: 'Corinthians',
-          data_jogo: '2024-01-15T18:30:00',
-          placar_oficial1: undefined,
-          placar_oficial2: undefined
-        },
-        {
-          id: '3',
-          time1: 'São Paulo',
-          time2: 'Santos',
-          data_jogo: '2024-01-16T20:00:00',
-          placar_oficial1: undefined,
-          placar_oficial2: undefined
-        }
-      ]
-    },
-    {
-      id: '2',
-      numero: 2,
-      data_inicio: '2024-01-22',
-      data_fim: '2024-01-28',
-      jogos: [
-        {
-          id: '4',
-          time1: 'Botafogo',
-          time2: 'Fluminense',
-          data_jogo: '2024-01-22T16:00:00',
-          placar_oficial1: undefined,
-          placar_oficial2: undefined
-        },
-        {
-          id: '5',
-          time1: 'Atlético-MG',
-          time2: 'Cruzeiro',
-          data_jogo: '2024-01-22T18:30:00',
-          placar_oficial1: undefined,
-          placar_oficial2: undefined
-        }
-      ]
+  // Buscar sala geral do brasileirão
+  useEffect(() => {
+    if (brasileirao?.id) {
+      fetchSalaGeral();
     }
-  ];
+  }, [brasileirao?.id]);
 
-  const handleBet = (gameId: string, placar1: number, placar2: number, creditos: number) => {
-    console.log('Aposta realizada:', { gameId, placar1, placar2, creditos });
-    
-    toast({
-      title: "Aposta realizada!",
-      description: `Você apostou ${creditos} créditos no placar ${placar1}x${placar2}`,
-    });
+  const fetchSalaGeral = async () => {
+    if (!brasileirao?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('salas')
+        .select('id')
+        .eq('campeonato_id', brasileirao.id)
+        .eq('tipo', 'geral')
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar sala geral:', error);
+        return;
+      }
+
+      setSalaGeral(data.id);
+    } catch (error) {
+      console.error('Erro ao buscar sala geral:', error);
+    }
   };
+
+  const getUserApostasCount = (gameId: string) => {
+    return apostas.filter(aposta => aposta.jogo_id === gameId).length;
+  };
+
+  const handleBet = async (gameId: string, placar1: number, placar2: number, creditos: number) => {
+    if (!salaGeral) {
+      throw new Error('Sala geral não encontrada');
+    }
+
+    // Verificar se usuário tem créditos suficientes
+    if (creditos > 0 && user.creditos < creditos) {
+      throw new Error('Créditos insuficientes');
+    }
+
+    // Verificar limite de apostas na rodada se necessário
+    const rodadaAtual = rodadas.find(r => r.jogos.some(j => j.id === gameId));
+    if (rodadaAtual) {
+      const apostasNaRodada = apostas.filter(a => 
+        rodadaAtual.jogos.some(j => j.id === a.jogo_id)
+      ).length;
+      
+      const limiteExtras = parseInt(configuracoes.limite_apostas_extras_por_rodada || '10');
+      if (apostasNaRodada >= limiteExtras) {
+        throw new Error(`Limite de ${limiteExtras} apostas por rodada atingido`);
+      }
+    }
+
+    try {
+      await createAposta({
+        jogo_id: gameId,
+        sala_id: salaGeral,
+        placar_time1: placar1,
+        placar_time2: placar2,
+        creditos_apostados: creditos
+      });
+
+      // Debitar créditos se necessário
+      if (creditos > 0) {
+        const { error } = await supabase
+          .from('usuarios')
+          .update({ creditos: user.creditos - creditos })
+          .eq('id', user.id);
+
+        if (error) {
+          console.error('Erro ao debitar créditos:', error);
+        }
+      }
+
+      await refetchApostas();
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+  const loading = campeonatosLoading || rodadasLoading || configLoading;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-emerald-600 mb-2">Carregando...</div>
+          <div className="text-gray-600">Buscando dados do Brasileirão 2025</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!brasileirao) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-red-600 mb-2">Campeonato não encontrado</div>
+          <div className="text-gray-600">O Campeonato Brasileiro 2025 ainda não foi configurado</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,7 +150,7 @@ const Home = ({ user }: HomeProps) => {
             Bem-vindo ao BetRooms, {user.nome}! ⚽
           </h1>
           <p className="text-lg text-gray-600 mb-4">
-            Faça suas apostas nos jogos do campeonato
+            Faça suas apostas no Campeonato Brasileiro 2025
           </p>
           
           <div className="flex items-center space-x-6">
@@ -113,34 +162,27 @@ const Home = ({ user }: HomeProps) => {
           </div>
         </div>
 
-        {/* Configuração da aposta */}
+        {/* Informações do campeonato */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Trophy className="h-5 w-5 text-emerald-600" />
-              <span>Configurar Apostas</span>
+              <span>Campeonato Brasileiro 2025</span>
             </CardTitle>
             <CardDescription>
-              Defina o valor da sua aposta para os jogos
+              Aposte nos jogos das 38 rodadas do Brasileirão 2025
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-4">
-              <div className="flex-1 max-w-xs">
-                <Label htmlFor="valor-aposta">Valor da Aposta (créditos)</Label>
-                <Input
-                  id="valor-aposta"
-                  type="number"
-                  min="10"
-                  max={user.creditos}
-                  value={valorAposta}
-                  onChange={(e) => setValorAposta(Number(e.target.value))}
-                  className="mt-1"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="font-medium">1ª aposta:</span> Grátis
               </div>
-              <div className="text-sm text-gray-600">
-                <div>Mínimo: 10 créditos</div>
-                <div>Máximo: {user.creditos} créditos</div>
+              <div>
+                <span className="font-medium">2ª aposta:</span> {configuracoes.valor_segunda_aposta || '50'} créditos
+              </div>
+              <div>
+                <span className="font-medium">3ª aposta:</span> {configuracoes.valor_terceira_aposta || '100'} créditos
               </div>
             </div>
           </CardContent>
@@ -150,12 +192,13 @@ const Home = ({ user }: HomeProps) => {
         <div className="mb-8">
           <div className="flex items-center space-x-2 mb-6">
             <Calendar className="h-6 w-6 text-emerald-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Rodadas do Campeonato</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Rodadas do Brasileirão 2025</h2>
           </div>
           
-          <RoundCarousel
-            rounds={rounds}
-            valorAposta={valorAposta}
+          <BrasileiroRoundCarousel
+            rodadas={rodadas}
+            configuracoes={configuracoes}
+            getUserApostasCount={getUserApostasCount}
             onBet={handleBet}
           />
         </div>
@@ -165,7 +208,7 @@ const Home = ({ user }: HomeProps) => {
           <Card>
             <CardContent className="flex items-center justify-center p-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-emerald-600 mb-1">0</div>
+                <div className="text-2xl font-bold text-emerald-600 mb-1">{apostas.length}</div>
                 <div className="text-sm text-gray-600">Apostas Realizadas</div>
               </div>
             </CardContent>
