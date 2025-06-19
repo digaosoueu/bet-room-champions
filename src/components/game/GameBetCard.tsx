@@ -19,17 +19,18 @@ interface Game {
 
 interface GameBetCardProps {
   game: Game;
-  apostasExistentes: number;
   configuracoes: Record<string, string>;
+  getUserApostasCount: (gameId: string) => number;
   onBet: (gameId: string, placar1: number, placar2: number, creditos: number) => Promise<void>;
 }
 
-const GameBetCard = ({ game, apostasExistentes, configuracoes, onBet }: GameBetCardProps) => {
+const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBetCardProps) => {
   const [placar1, setPlacar1] = useState<number>(0);
   const [placar2, setPlacar2] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const apostasExistentes = getUserApostasCount(game.id);
   const dataJogo = new Date(game.data_jogo);
   const agora = new Date();
   const jogoJaAconteceu = dataJogo < agora;
