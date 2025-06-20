@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,12 +40,12 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
 
     setIsSubmitting(true);
     try {
-      const newRoom = await createSala({
-        nome: formData.nome,
-        tipo: formData.tipo,
-        valor_aposta: formData.valor_aposta,
-        campeonato_id: parseInt(formData.campeonato_id)
-      });
+      const newRoom = await createSala(
+        formData.nome,
+        formData.tipo,
+        formData.valor_aposta,
+        parseInt(formData.campeonato_id)
+      );
 
       toast({
         title: "Sala criada com sucesso!",
