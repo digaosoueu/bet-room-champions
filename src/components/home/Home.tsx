@@ -35,7 +35,7 @@ const Home = ({ user }: HomeProps) => {
   const { rodadas, loading: rodadasLoading, currentRoundIndex } = useRodadas(brasileirao?.id);
   const { configuracoes, loading: configLoading } = useConfiguracoes();
   const { salaGeral, loading: salaLoading } = useGeneralRoom(brasileirao?.id);
-  const { apostas, createAposta, refetch: refetchApostas } = useApostas(salaGeral);
+  const { apostas, createAposta, refetch: refetchApostas } = useApostas(salaGeral || '');
 
   const getUserApostasCount = (gameId: string) => {
     return apostas.filter(aposta => aposta.jogo_id === gameId).length;
@@ -54,7 +54,7 @@ const Home = ({ user }: HomeProps) => {
     try {
       console.log('Iniciando aposta:', { gameId, placar1, placar2, creditos, salaGeral });
 
-      // Verificar se usuário tem créditos suficientes
+      // Verificar se usuário tem créditos suficientes (apenas para apostas extras)
       if (creditos > 0 && user.creditos < creditos) {
         toast({
           title: "Créditos insuficientes",
@@ -64,18 +64,19 @@ const Home = ({ user }: HomeProps) => {
         return;
       }
 
-      // Verificar limite de apostas na rodada se necessário
+      // Verificar limite de apostas extras na rodada
       const rodadaAtual = rodadas.find(r => r.jogos.some(j => j.id === gameId));
-      if (rodadaAtual) {
-        const apostasNaRodada = apostas.filter(a => 
-          rodadaAtual.jogos.some(j => j.id === a.jogo_id)
-        ).length;
+      if (rodadaAtual && creditos > 0) {
+        const apostasExtrasNaRodada = apostas.filter(a => {
+          const jogoNaRodada = rodadaAtual.jogos.some(j => j.id === a.jogo_id);
+          return jogoNaRodada && a.creditos_apostados > 0;
+        }).length;
         
         const limiteExtras = parseInt(configuracoes.limite_apostas_extras_por_rodada || '10');
-        if (apostasNaRodada >= limiteExtras) {
+        if (apostasExtrasNaRodada >= limiteExtras) {
           toast({
             title: "Limite atingido",
-            description: `Limite de ${limiteExtras} apostas por rodada atingido`,
+            description: `Limite de ${limiteExtras} apostas extras por rodada atingido`,
             variant: "destructive"
           });
           return;
@@ -91,7 +92,7 @@ const Home = ({ user }: HomeProps) => {
         creditos_apostados: creditos
       });
 
-      // Debitar créditos se necessário
+      // Debitar créditos se for aposta extra
       if (creditos > 0) {
         const { error } = await supabase
           .from('usuarios')
@@ -105,8 +106,11 @@ const Home = ({ user }: HomeProps) => {
 
       toast({
         title: "Aposta realizada!",
-        description: `Aposta de ${placar1} x ${placar2} registrada com sucesso`,
+        description: `Aposta de ${placar1} x ${placar2} registrada com sucesso${creditos > 0 ? ` (${creditos} créditos)` : ' (grátis)'}`,
       });
+
+      // Recarregar apostas
+      refetchApostas();
 
     } catch (error: any) {
       console.error('Erro ao fazer aposta:', error);
@@ -118,11 +122,9 @@ const Home = ({ user }: HomeProps) => {
     }
   };
 
-  const loading = campeonatosLoading || rodadasLoading || configLoading || salaLoading;
-
   // Logs para debugging
   useEffect(() => {
-    console.log('Estado atual:');
+    console.log('Estado atual da Home:');
     console.log('- Campeonatos encontrados:', campeonatos.length);
     console.log('- Brasileirão encontrado:', brasileirao);
     console.log('- Rodadas carregadas:', rodadas.length);
@@ -133,7 +135,8 @@ const Home = ({ user }: HomeProps) => {
     console.log('- Loading states:', { campeonatosLoading, rodadasLoading, configLoading, salaLoading });
   }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral, apostas, campeonatosLoading, rodadasLoading, configLoading, salaLoading]);
 
-  if (loading) {
+  // Loading enquanto busca dados essenciais
+  if (campeonatosLoading || rodadasLoading || configLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -144,6 +147,7 @@ const Home = ({ user }: HomeProps) => {
     );
   }
 
+  // Verificar se o campeonato foi encontrado
   if (!brasileirao) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -155,6 +159,7 @@ const Home = ({ user }: HomeProps) => {
     );
   }
 
+  // Verificar se existem rodadas
   if (rodadas.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -166,13 +171,25 @@ const Home = ({ user }: HomeProps) => {
     );
   }
 
-  // Se chegou até aqui, tem campeonato e rodadas, mas sem sala geral ainda
+  // Loading da sala geral
+  if (salaLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-emerald-600 mb-2">Preparando sala geral...</div>
+          <div className="text-gray-600">Configurando sua participação na sala geral</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Se não conseguiu criar/encontrar a sala geral
   if (!salaGeral) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl font-bold text-yellow-600 mb-2">Preparando sala geral...</div>
-          <div className="text-gray-600">A sala geral do campeonato está sendo configurada</div>
+          <div className="text-2xl font-bold text-red-600 mb-2">Erro na sala geral</div>
+          <div className="text-gray-600">Não foi possível configurar a sala geral. Tente recarregar a página.</div>
         </div>
       </div>
     );

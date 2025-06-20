@@ -10,45 +10,45 @@ export const useGeneralRoom = (campeonatoId?: string) => {
 
   useEffect(() => {
     if (campeonatoId) {
-      fetchSalaGeral();
+      fetchOrCreateSalaGeral();
     } else {
       setLoading(false);
     }
   }, [campeonatoId]);
 
-  const fetchSalaGeral = async () => {
+  const fetchOrCreateSalaGeral = async () => {
     if (!campeonatoId) return;
 
     try {
-      console.log('Buscando sala geral para campeonato:', campeonatoId);
+      console.log('Buscando/criando sala geral para campeonato:', campeonatoId);
       
-      // Buscar sala geral baseada apenas no campeonato e tipo
-      const { data, error } = await supabase
+      // Primeiro verificar se já existe uma sala geral para este campeonato
+      const { data: salaExistente, error: searchError } = await supabase
         .from('salas')
         .select('id, nome, tipo')
         .eq('campeonato_id', campeonatoId)
         .eq('tipo', 'geral')
         .maybeSingle();
 
-      if (error) {
-        console.error('Erro ao buscar sala geral:', error);
-        setLoading(false);
+      if (searchError) {
+        console.error('Erro ao buscar sala geral:', searchError);
+        // Tentar criar uma sala geral mesmo com erro de busca
+        await createGeneralRoom();
         return;
       }
 
-      if (data) {
-        console.log('Sala geral encontrada:', data);
-        setSalaGeral(data.id);
-        
-        // Verificar se o usuário já é participante da sala geral
-        await ensureUserInGeneralRoom(data.id);
+      if (salaExistente) {
+        console.log('Sala geral encontrada:', salaExistente);
+        setSalaGeral(salaExistente.id);
+        await ensureUserInGeneralRoom(salaExistente.id);
       } else {
-        console.log('Nenhuma sala geral encontrada - tentando criar uma');
-        // Se não encontrar, tentar criar uma sala geral
+        console.log('Sala geral não encontrada - criando uma nova');
         await createGeneralRoom();
       }
     } catch (error) {
-      console.error('Erro ao buscar sala geral:', error);
+      console.error('Erro ao buscar/criar sala geral:', error);
+      // Mesmo com erro, tentar criar a sala
+      await createGeneralRoom();
     } finally {
       setLoading(false);
     }
@@ -58,41 +58,49 @@ export const useGeneralRoom = (campeonatoId?: string) => {
     if (!campeonatoId) return;
 
     try {
-      // Buscar o ID do usuário na tabela usuarios para ser o dono
+      console.log('Criando sala geral para o campeonato');
+      
+      // Buscar o usuário autenticado
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
+      if (!userData.user) {
+        console.error('Usuário não autenticado');
+        return;
+      }
 
+      // Buscar o perfil do usuário na tabela usuarios
       const { data: usuarioData } = await supabase
         .from('usuarios')
         .select('id')
         .eq('auth_user_id', userData.user.id)
         .single();
 
-      if (!usuarioData) return;
+      if (!usuarioData) {
+        console.error('Perfil do usuário não encontrado');
+        return;
+      }
 
-      console.log('Criando sala geral para o campeonato');
-      
-      const { data: novaSala, error } = await supabase
+      // Criar a sala geral
+      const { data: novaSala, error: createError } = await supabase
         .from('salas')
         .insert({
-          nome: 'Sala Geral',
+          nome: 'Sala Geral - Brasileirão 2025',
           tipo: 'geral',
           campeonato_id: campeonatoId,
           dono_id: usuarioData.id,
-          valor_aposta: 0
+          valor_aposta: 0 // Apostas grátis na sala geral
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Erro ao criar sala geral:', error);
+      if (createError) {
+        console.error('Erro ao criar sala geral:', createError);
         return;
       }
 
       console.log('Sala geral criada com sucesso:', novaSala);
       setSalaGeral(novaSala.id);
       
-      // Adicionar o usuário como participante
+      // Garantir que o usuário seja participante da sala
       await ensureUserInGeneralRoom(novaSala.id);
     } catch (error) {
       console.error('Erro ao criar sala geral:', error);
@@ -101,10 +109,11 @@ export const useGeneralRoom = (campeonatoId?: string) => {
 
   const ensureUserInGeneralRoom = async (salaId: string) => {
     try {
-      // Buscar o ID do usuário na tabela usuarios
+      // Buscar o usuário autenticado
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
+      // Buscar o perfil do usuário
       const { data: usuarioData } = await supabase
         .from('usuarios')
         .select('id')
