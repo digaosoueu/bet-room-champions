@@ -11,7 +11,7 @@ import { useApostas } from '@/hooks/useApostas';
 import { useToast } from '@/hooks/use-toast';
 
 interface RoomViewProps {
-  roomId: string;
+  roomId: number;
   onBack: () => void;
 }
 
@@ -31,7 +31,7 @@ const RoomView = ({ roomId, onBack }: RoomViewProps) => {
 
   const [games] = useState([
     {
-      id: '1',
+      id: 1,
       time1: 'Flamengo',
       time2: 'Palmeiras',
       data_jogo: '2024-06-22T16:00:00',
@@ -39,7 +39,7 @@ const RoomView = ({ roomId, onBack }: RoomViewProps) => {
       placar_oficial2: null,
     },
     {
-      id: '2',
+      id: 2,
       time1: 'São Paulo',
       time2: 'Corinthians',
       data_jogo: '2024-06-22T18:30:00',
@@ -47,7 +47,7 @@ const RoomView = ({ roomId, onBack }: RoomViewProps) => {
       placar_oficial2: null,
     },
     {
-      id: '3',
+      id: 3,
       time1: 'Santos',
       time2: 'Fluminense',
       data_jogo: '2024-06-23T16:00:00',
@@ -56,7 +56,7 @@ const RoomView = ({ roomId, onBack }: RoomViewProps) => {
     }
   ]);
 
-  const handleBet = async (gameId: string, placar1: number, placar2: number, creditos: number) => {
+  const handleBet = async (gameId: number, placar1: number, placar2: number, creditos: number) => {
     try {
       // Verificar se o jogo já começou
       const game = games.find(g => g.id === gameId);
@@ -119,7 +119,7 @@ const RoomView = ({ roomId, onBack }: RoomViewProps) => {
     }
   };
 
-  const getApostasCount = (gameId: string) => {
+  const getApostasCount = (gameId: number) => {
     return apostas.filter(a => a.jogo_id === gameId).length;
   };
 

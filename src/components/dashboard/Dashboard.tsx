@@ -7,7 +7,7 @@ import RoomCard from './RoomCard';
 import { useSalas } from '@/hooks/useSalas';
 
 interface User {
-  id: string;
+  id: number;
   nome: string;
   email: string;
   creditos: number;
@@ -18,7 +18,7 @@ interface DashboardProps {
   onCreateRoom: () => void;
   onJoinRoom: () => void;
   onViewRanking: () => void;
-  onEnterRoom: (roomId: string) => void;
+  onEnterRoom: (roomId: number) => void;
 }
 
 const Dashboard = ({ user, onCreateRoom, onJoinRoom, onViewRanking, onEnterRoom }: DashboardProps) => {
@@ -90,7 +90,10 @@ const Dashboard = ({ user, onCreateRoom, onJoinRoom, onViewRanking, onEnterRoom 
               {userRooms.map((room) => (
                 <RoomCard
                   key={room.id}
-                  room={room}
+                  room={{
+                    ...room,
+                    campeonato: { nome: 'Campeonato Brasileiro 2025' }
+                  }}
                   onEnterRoom={onEnterRoom}
                 />
               ))}

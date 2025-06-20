@@ -45,7 +45,7 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
         nome: formData.nome,
         tipo: formData.tipo,
         valor_aposta: formData.valor_aposta,
-        campeonato_id: formData.campeonato_id
+        campeonato_id: parseInt(formData.campeonato_id)
       });
 
       toast({
@@ -150,7 +150,7 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
                       <SelectItem value="" disabled>Carregando...</SelectItem>
                     ) : (
                       campeonatos.map((campeonato) => (
-                        <SelectItem key={campeonato.id} value={campeonato.id}>
+                        <SelectItem key={campeonato.id} value={campeonato.id.toString()}>
                           {campeonato.nome} - {campeonato.temporada}
                         </SelectItem>
                       ))

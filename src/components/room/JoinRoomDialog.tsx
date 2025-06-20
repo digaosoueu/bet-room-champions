@@ -25,7 +25,7 @@ const JoinRoomDialog = ({ open, onOpenChange, onJoinSuccess }: JoinRoomDialogPro
   // Mock de salas públicas - em produção viria do Supabase
   const [salasPublicas] = useState([
     {
-      id: '1',
+      id: 1,
       nome: 'Brasileirão 2024',
       tipo: 'publica' as const,
       valor_aposta: 100,
@@ -33,7 +33,7 @@ const JoinRoomDialog = ({ open, onOpenChange, onJoinSuccess }: JoinRoomDialogPro
       campeonato: { nome: 'Campeonato Brasileiro 2024' }
     },
     {
-      id: '2',
+      id: 2,
       nome: 'Champions League',
       tipo: 'publica' as const,
       valor_aposta: 200,
@@ -55,7 +55,7 @@ const JoinRoomDialog = ({ open, onOpenChange, onJoinSuccess }: JoinRoomDialogPro
     setIsJoining(true);
     try {
       // Em produção, buscar sala pelo código primeiro
-      await joinSala('mock-sala-id', codigo);
+      await joinSala(1, codigo);
       
       toast({
         title: "Sucesso!",
@@ -76,7 +76,7 @@ const JoinRoomDialog = ({ open, onOpenChange, onJoinSuccess }: JoinRoomDialogPro
     }
   };
 
-  const handleJoinPublicRoom = async (salaId: string) => {
+  const handleJoinPublicRoom = async (salaId: number) => {
     setIsJoining(true);
     try {
       await joinSala(salaId);
