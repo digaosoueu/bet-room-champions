@@ -6,7 +6,7 @@ import type { Database } from '@/integrations/supabase/types';
 type Aposta = Database['public']['Tables']['apostas']['Row'];
 type ApostaInput = Database['public']['Tables']['apostas']['Insert'];
 
-export const useApostas = (salaId?: string) => {
+export const useApostas = (salaId?: number) => {
   const [apostas, setApostas] = useState<Aposta[]>([]);
   const [loading, setLoading] = useState(true);
 

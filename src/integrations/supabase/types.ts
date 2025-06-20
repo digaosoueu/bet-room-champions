@@ -13,32 +13,32 @@ export type Database = {
         Row: {
           creditos_apostados: number
           data_aposta: string
-          id: string
-          jogo_id: string
+          id: number
+          jogo_id: number
           placar_time1: number
           placar_time2: number
-          sala_id: string
-          usuario_id: string
+          sala_id: number
+          usuario_id: number
         }
         Insert: {
           creditos_apostados: number
           data_aposta?: string
-          id?: string
-          jogo_id: string
+          id?: number
+          jogo_id: number
           placar_time1: number
           placar_time2: number
-          sala_id: string
-          usuario_id: string
+          sala_id: number
+          usuario_id: number
         }
         Update: {
           creditos_apostados?: number
           data_aposta?: string
-          id?: string
-          jogo_id?: string
+          id?: number
+          jogo_id?: number
           placar_time1?: number
           placar_time2?: number
-          sala_id?: string
-          usuario_id?: string
+          sala_id?: number
+          usuario_id?: number
         }
         Relationships: [
           {
@@ -68,7 +68,7 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
-          id: string
+          id: number
           nome: string
           temporada: string
           updated_at: string
@@ -76,7 +76,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
-          id?: string
+          id?: number
           nome: string
           temporada: string
           updated_at?: string
@@ -84,7 +84,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
-          id?: string
+          id?: number
           nome?: string
           temporada?: string
           updated_at?: string
@@ -119,10 +119,10 @@ export type Database = {
         Row: {
           created_at: string
           data_jogo: string
-          id: string
+          id: number
           placar_oficial1: number | null
           placar_oficial2: number | null
-          rodada_id: string
+          rodada_id: number
           time1: string
           time2: string
           updated_at: string
@@ -130,10 +130,10 @@ export type Database = {
         Insert: {
           created_at?: string
           data_jogo: string
-          id?: string
+          id?: number
           placar_oficial1?: number | null
           placar_oficial2?: number | null
-          rodada_id: string
+          rodada_id: number
           time1: string
           time2: string
           updated_at?: string
@@ -141,10 +141,10 @@ export type Database = {
         Update: {
           created_at?: string
           data_jogo?: string
-          id?: string
+          id?: number
           placar_oficial1?: number | null
           placar_oficial2?: number | null
-          rodada_id?: string
+          rodada_id?: number
           time1?: string
           time2?: string
           updated_at?: string
@@ -162,21 +162,21 @@ export type Database = {
       participantes: {
         Row: {
           data_entrada: string
-          id: string
-          sala_id: string
-          usuario_id: string
+          id: number
+          sala_id: number
+          usuario_id: number
         }
         Insert: {
           data_entrada?: string
-          id?: string
-          sala_id: string
-          usuario_id: string
+          id?: number
+          sala_id: number
+          usuario_id: number
         }
         Update: {
           data_entrada?: string
-          id?: string
-          sala_id?: string
-          usuario_id?: string
+          id?: number
+          sala_id?: number
+          usuario_id?: number
         }
         Relationships: [
           {
@@ -199,29 +199,29 @@ export type Database = {
         Row: {
           created_at: string
           creditos_ganhos: number
-          id: string
+          id: number
           pontos: number
-          sala_id: string
+          sala_id: number
           updated_at: string
-          usuario_id: string
+          usuario_id: number
         }
         Insert: {
           created_at?: string
           creditos_ganhos?: number
-          id?: string
+          id?: number
           pontos?: number
-          sala_id: string
+          sala_id: number
           updated_at?: string
-          usuario_id: string
+          usuario_id: number
         }
         Update: {
           created_at?: string
           creditos_ganhos?: number
-          id?: string
+          id?: number
           pontos?: number
-          sala_id?: string
+          sala_id?: number
           updated_at?: string
-          usuario_id?: string
+          usuario_id?: number
         }
         Relationships: [
           {
@@ -242,29 +242,29 @@ export type Database = {
       }
       rodadas: {
         Row: {
-          campeonato_id: string
+          campeonato_id: number
           created_at: string
           data_fim: string
           data_inicio: string
-          id: string
+          id: number
           numero: number
           updated_at: string
         }
         Insert: {
-          campeonato_id: string
+          campeonato_id: number
           created_at?: string
           data_fim: string
           data_inicio: string
-          id?: string
+          id?: number
           numero: number
           updated_at?: string
         }
         Update: {
-          campeonato_id?: string
+          campeonato_id?: number
           created_at?: string
           data_fim?: string
           data_inicio?: string
-          id?: string
+          id?: number
           numero?: number
           updated_at?: string
         }
@@ -280,33 +280,33 @@ export type Database = {
       }
       salas: {
         Row: {
-          campeonato_id: string
+          campeonato_id: number
           codigo_acesso: string | null
           created_at: string
-          dono_id: string
-          id: string
+          dono_id: number
+          id: number
           nome: string
           tipo: Database["public"]["Enums"]["tipo_sala"]
           updated_at: string
           valor_aposta: number
         }
         Insert: {
-          campeonato_id: string
+          campeonato_id: number
           codigo_acesso?: string | null
           created_at?: string
-          dono_id: string
-          id?: string
+          dono_id?: number
+          id?: number
           nome: string
           tipo?: Database["public"]["Enums"]["tipo_sala"]
           updated_at?: string
           valor_aposta: number
         }
         Update: {
-          campeonato_id?: string
+          campeonato_id?: number
           codigo_acesso?: string | null
           created_at?: string
-          dono_id?: string
-          id?: string
+          dono_id?: number
+          id?: number
           nome?: string
           tipo?: Database["public"]["Enums"]["tipo_sala"]
           updated_at?: string
@@ -320,13 +320,6 @@ export type Database = {
             referencedRelation: "campeonatos"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "salas_dono_id_fkey"
-            columns: ["dono_id"]
-            isOneToOne: false
-            referencedRelation: "usuarios"
-            referencedColumns: ["id"]
-          },
         ]
       }
       usuarios: {
@@ -335,7 +328,7 @@ export type Database = {
           created_at: string
           creditos: number
           email: string
-          id: string
+          id: number
           nome: string
           updated_at: string
         }
@@ -344,7 +337,7 @@ export type Database = {
           created_at?: string
           creditos?: number
           email: string
-          id?: string
+          id?: number
           nome: string
           updated_at?: string
         }
@@ -353,7 +346,7 @@ export type Database = {
           created_at?: string
           creditos?: number
           email?: string
-          id?: string
+          id?: number
           nome?: string
           updated_at?: string
         }

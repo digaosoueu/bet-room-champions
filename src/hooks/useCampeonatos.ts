@@ -26,6 +26,7 @@ export const useCampeonatos = () => {
         return;
       }
 
+      console.log('Campeonatos encontrados:', data);
       setCampeonatos(data || []);
     } catch (error) {
       console.error('Erro ao buscar campeonatos:', error);

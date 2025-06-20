@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export const useGeneralRoom = (campeonatoId?: string) => {
-  const [salaGeral, setSalaGeral] = useState<string>('');
+export const useGeneralRoom = (campeonatoId?: number) => {
+  const [salaGeral, setSalaGeral] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -32,8 +32,7 @@ export const useGeneralRoom = (campeonatoId?: string) => {
 
       if (searchError) {
         console.error('Erro ao buscar sala geral:', searchError);
-        // Tentar criar uma sala geral mesmo com erro de busca
-        await createGeneralRoom();
+        setLoading(false);
         return;
       }
 
@@ -47,8 +46,7 @@ export const useGeneralRoom = (campeonatoId?: string) => {
       }
     } catch (error) {
       console.error('Erro ao buscar/criar sala geral:', error);
-      // Mesmo com erro, tentar criar a sala
-      await createGeneralRoom();
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -60,33 +58,14 @@ export const useGeneralRoom = (campeonatoId?: string) => {
     try {
       console.log('Criando sala geral para o campeonato');
       
-      // Buscar o usuário autenticado
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        console.error('Usuário não autenticado');
-        return;
-      }
-
-      // Buscar o perfil do usuário na tabela usuarios
-      const { data: usuarioData } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('auth_user_id', userData.user.id)
-        .single();
-
-      if (!usuarioData) {
-        console.error('Perfil do usuário não encontrado');
-        return;
-      }
-
-      // Criar a sala geral
+      // Criar a sala geral com dono_id = 0
       const { data: novaSala, error: createError } = await supabase
         .from('salas')
         .insert({
           nome: 'Sala Geral - Brasileirão 2025',
           tipo: 'geral',
           campeonato_id: campeonatoId,
-          dono_id: usuarioData.id,
+          dono_id: 0,
           valor_aposta: 0 // Apostas grátis na sala geral
         })
         .select()
@@ -107,7 +86,7 @@ export const useGeneralRoom = (campeonatoId?: string) => {
     }
   };
 
-  const ensureUserInGeneralRoom = async (salaId: string) => {
+  const ensureUserInGeneralRoom = async (salaId: number) => {
     try {
       // Buscar o usuário autenticado
       const { data: userData } = await supabase.auth.getUser();

@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 interface User {
-  id: string;
+  id: number;
   nome: string;
   email: string;
   creditos: number;
@@ -35,13 +35,13 @@ const Home = ({ user }: HomeProps) => {
   const { rodadas, loading: rodadasLoading, currentRoundIndex } = useRodadas(brasileirao?.id);
   const { configuracoes, loading: configLoading } = useConfiguracoes();
   const { salaGeral, loading: salaLoading } = useGeneralRoom(brasileirao?.id);
-  const { apostas, createAposta, refetch: refetchApostas } = useApostas(salaGeral || '');
+  const { apostas, createAposta, refetch: refetchApostas } = useApostas(salaGeral || undefined);
 
-  const getUserApostasCount = (gameId: string) => {
+  const getUserApostasCount = (gameId: number) => {
     return apostas.filter(aposta => aposta.jogo_id === gameId).length;
   };
 
-  const handleBet = async (gameId: string, placar1: number, placar2: number, creditos: number) => {
+  const handleBet = async (gameId: number, placar1: number, placar2: number, creditos: number) => {
     if (!salaGeral) {
       toast({
         title: "Erro",
@@ -211,8 +211,8 @@ const Home = ({ user }: HomeProps) => {
           rodadasCount={rodadas.length}
           currentRoundIndex={currentRoundIndex}
           totalJogos={totalJogos}
-          salaGeralId={salaGeral}
-          campeonatoId={brasileirao?.id || ''}
+          salaGeralId={salaGeral?.toString() || ''}
+          campeonatoId={brasileirao?.id?.toString() || ''}
         />
 
         {/* Rodadas do campeonato */}

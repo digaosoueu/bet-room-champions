@@ -5,7 +5,7 @@ import type { Database } from '@/integrations/supabase/types';
 
 type Rodada = Database['public']['Tables']['rodadas']['Row'] & {
   jogos: Array<{
-    id: string;
+    id: number;
     time1: string;
     time2: string;
     data_jogo: string;
@@ -14,7 +14,7 @@ type Rodada = Database['public']['Tables']['rodadas']['Row'] & {
   }>;
 };
 
-export const useRodadas = (campeonatoId?: string) => {
+export const useRodadas = (campeonatoId?: number) => {
   const [rodadas, setRodadas] = useState<Rodada[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);

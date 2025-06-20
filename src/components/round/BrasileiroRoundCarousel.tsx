@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GameBetCard from '@/components/game/GameBetCard';
 
 interface Game {
-  id: string;
+  id: number;
   time1: string;
   time2: string;
   data_jogo: string;
@@ -21,7 +21,7 @@ interface Game {
 }
 
 interface Round {
-  id: string;
+  id: number;
   numero: number;
   data_inicio: string;
   data_fim: string;
@@ -31,8 +31,8 @@ interface Round {
 interface BrasileiroRoundCarouselProps {
   rodadas: Round[];
   configuracoes: any;
-  getUserApostasCount: (gameId: string) => number;
-  onBet: (gameId: string, placar1: number, placar2: number, creditos: number) => Promise<void>;
+  getUserApostasCount: (gameId: number) => number;
+  onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => Promise<void>;
   initialRoundIndex?: number;
 }
 
