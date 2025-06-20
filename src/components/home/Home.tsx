@@ -4,15 +4,15 @@ import { Calendar } from 'lucide-react';
 import BrasileiroRoundCarousel from '@/components/round/BrasileiroRoundCarousel';
 import HomeHeader from '@/components/home/HomeHeader';
 import ChampionshipInfo from '@/components/home/ChampionshipInfo';
-import QuickStats from '@/components/home/QuickStats';
-import DebugInfo from '@/components/home/DebugInfo';
+import HomeLoadingStates from '@/components/home/HomeLoadingStates';
+import HomeErrorStates from '@/components/home/HomeErrorStates';
+import HomeBettingLogic from '@/components/home/HomeBettingLogic';
+import HomeDebugSection from '@/components/home/HomeDebugSection';
 import { useRodadas } from '@/hooks/useRodadas';
 import { useConfiguracoes } from '@/hooks/useConfiguracoes';
 import { useCampeonatos } from '@/hooks/useCampeonatos';
 import { useApostas } from '@/hooks/useApostas';
 import { useGeneralRoom } from '@/hooks/useGeneralRoom';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: number;
@@ -26,7 +26,6 @@ interface HomeProps {
 }
 
 const Home = ({ user }: HomeProps) => {
-  const { toast } = useToast();
   const { campeonatos, loading: campeonatosLoading } = useCampeonatos();
   
   // Buscar o Campeonato Brasileiro 2025
@@ -37,99 +36,15 @@ const Home = ({ user }: HomeProps) => {
   const { salaGeral, loading: salaLoading } = useGeneralRoom(brasileirao?.id);
   const { apostas, createAposta, refetch: refetchApostas } = useApostas(salaGeral || undefined);
 
-  const getUserApostasCount = (gameId: number) => {
-    return apostas.filter(aposta => aposta.jogo_id === gameId).length;
-  };
-
-  const handleBet = async (gameId: number, placar1: number, placar2: number, creditos: number) => {
-    if (!user) {
-      toast({
-        title: "Login necessário",
-        description: "Você precisa estar logado para fazer apostas.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!salaGeral) {
-      toast({
-        title: "Erro",
-        description: "Sala geral não encontrada. Aguarde o carregamento.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      console.log('Iniciando aposta:', { gameId, placar1, placar2, creditos, salaGeral });
-
-      // Verificar se usuário tem créditos suficientes (apenas para apostas extras)
-      if (creditos > 0 && user.creditos < creditos) {
-        toast({
-          title: "Créditos insuficientes",
-          description: `Você precisa de ${creditos} créditos para fazer esta aposta`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Verificar limite de apostas extras na rodada
-      const rodadaAtual = rodadas.find(r => r.jogos.some(j => j.id === gameId));
-      if (rodadaAtual && creditos > 0) {
-        const apostasExtrasNaRodada = apostas.filter(a => {
-          const jogoNaRodada = rodadaAtual.jogos.some(j => j.id === a.jogo_id);
-          return jogoNaRodada && a.creditos_apostados > 0;
-        }).length;
-        
-        const limiteExtras = parseInt(configuracoes.limite_apostas_extras_por_rodada || '10');
-        if (apostasExtrasNaRodada >= limiteExtras) {
-          toast({
-            title: "Limite atingido",
-            description: `Limite de ${limiteExtras} apostas extras por rodada atingido`,
-            variant: "destructive"
-          });
-          return;
-        }
-      }
-
-      // Criar a aposta
-      await createAposta({
-        jogo_id: gameId,
-        sala_id: salaGeral,
-        placar_time1: placar1,
-        placar_time2: placar2,
-        creditos_apostados: creditos
-      });
-
-      // Debitar créditos se for aposta extra
-      if (creditos > 0) {
-        const { error } = await supabase
-          .from('usuarios')
-          .update({ creditos: user.creditos - creditos })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('Erro ao debitar créditos:', error);
-        }
-      }
-
-      toast({
-        title: "Aposta realizada!",
-        description: `Aposta de ${placar1} x ${placar2} registrada com sucesso${creditos > 0 ? ` (${creditos} créditos)` : ' (grátis)'}`,
-      });
-
-      // Recarregar apostas
-      refetchApostas();
-
-    } catch (error: any) {
-      console.error('Erro ao fazer aposta:', error);
-      toast({
-        title: "Erro ao apostar",
-        description: error.message || "Tente novamente",
-        variant: "destructive"
-      });
-    }
-  };
+  const { handleBet, getUserApostasCount } = HomeBettingLogic({
+    user,
+    salaGeral,
+    rodadas,
+    configuracoes,
+    apostas,
+    createAposta,
+    refetchApostas
+  });
 
   // Logs para debugging
   useEffect(() => {
@@ -145,28 +60,27 @@ const Home = ({ user }: HomeProps) => {
     console.log('- Loading states:', { campeonatosLoading, rodadasLoading, configLoading, salaLoading });
   }, [user, campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral, apostas, campeonatosLoading, rodadasLoading, configLoading, salaLoading]);
 
-  const totalJogos = rodadas.reduce((acc, r) => acc + (r.jogos?.length || 0), 0);
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <HomeHeader user={user} />
         
-        {/* Loading enquanto busca dados essenciais */}
-        {campeonatosLoading && (
-          <div className="text-center py-8">
-            <div className="text-xl font-bold text-emerald-600 mb-2">Carregando campeonatos...</div>
-            <div className="text-gray-600">Buscando dados do Brasileirão 2025</div>
-          </div>
-        )}
+        {/* Loading States */}
+        <HomeLoadingStates 
+          campeonatosLoading={campeonatosLoading}
+          rodadasLoading={rodadasLoading && brasileirao !== undefined}
+          salaLoading={salaLoading && rodadas.length > 0}
+        />
 
-        {/* Verificar se o campeonato foi encontrado */}
-        {!campeonatosLoading && !brasileirao && (
-          <div className="text-center py-8">
-            <div className="text-xl font-bold text-yellow-600 mb-2">Campeonato não encontrado</div>
-            <div className="text-gray-600">O Campeonato Brasileiro 2025 ainda não foi configurado</div>
-          </div>
-        )}
+        {/* Error States */}
+        <HomeErrorStates 
+          campeonatosLoading={campeonatosLoading}
+          brasileirao={brasileirao}
+          rodadasLoading={rodadasLoading}
+          rodadas={rodadas}
+          salaLoading={salaLoading}
+          salaGeral={salaGeral}
+        />
 
         {/* Mostrar informações do campeonato se encontrado */}
         {brasileirao && (
@@ -176,45 +90,13 @@ const Home = ({ user }: HomeProps) => {
               configuracoes={configuracoes} 
             />
 
-            <DebugInfo
-              rodadasCount={rodadas.length}
+            <HomeDebugSection
+              rodadas={rodadas}
               currentRoundIndex={currentRoundIndex}
-              totalJogos={totalJogos}
-              salaGeralId={salaGeral?.toString() || ''}
-              campeonatoId={brasileirao?.id?.toString() || ''}
+              salaGeral={salaGeral}
+              brasileiraoId={brasileirao?.id}
+              apostasCount={apostas.length}
             />
-
-            {/* Loading das rodadas */}
-            {rodadasLoading && (
-              <div className="text-center py-8">
-                <div className="text-xl font-bold text-emerald-600 mb-2">Carregando rodadas...</div>
-                <div className="text-gray-600">Buscando jogos do campeonato</div>
-              </div>
-            )}
-
-            {/* Verificar se existem rodadas */}
-            {!rodadasLoading && rodadas.length === 0 && (
-              <div className="text-center py-8">
-                <div className="text-xl font-bold text-yellow-600 mb-2">Nenhuma rodada encontrada</div>
-                <div className="text-gray-600">As rodadas do Brasileirão 2025 ainda não foram cadastradas</div>
-              </div>
-            )}
-
-            {/* Loading da sala geral */}
-            {salaLoading && (
-              <div className="text-center py-8">
-                <div className="text-xl font-bold text-emerald-600 mb-2">Preparando sala geral...</div>
-                <div className="text-gray-600">Configurando sua participação na sala geral</div>
-              </div>
-            )}
-
-            {/* Se não conseguiu criar/encontrar a sala geral */}
-            {!salaLoading && !salaGeral && rodadas.length > 0 && (
-              <div className="text-center py-8">
-                <div className="text-xl font-bold text-red-600 mb-2">Erro na sala geral</div>
-                <div className="text-gray-600">Não foi possível configurar a sala geral. Tente recarregar a página.</div>
-              </div>
-            )}
 
             {/* Rodadas do campeonato */}
             {rodadas.length > 0 && (
@@ -233,8 +115,6 @@ const Home = ({ user }: HomeProps) => {
                 />
               </div>
             )}
-
-            <QuickStats apostasCount={apostas.length} />
           </>
         )}
       </div>
