@@ -45,7 +45,7 @@ const Home = ({ user }: HomeProps) => {
     if (!salaGeral) {
       toast({
         title: "Erro",
-        description: "Sala geral não encontrada. Tente recarregar a página.",
+        description: "Sala geral não encontrada. Aguarde o carregamento.",
         variant: "destructive"
       });
       return;
@@ -122,14 +122,16 @@ const Home = ({ user }: HomeProps) => {
 
   // Logs para debugging
   useEffect(() => {
-    console.log('Campeonatos encontrados:', campeonatos.length);
-    console.log('Brasileirão encontrado:', brasileirao);
-    console.log('Rodadas carregadas:', rodadas.length);
-    console.log('Rodada atual (index):', currentRoundIndex);
-    console.log('Configurações:', configuracoes);
-    console.log('Sala geral ID:', salaGeral);
-    console.log('Apostas carregadas:', apostas.length);
-  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral, apostas]);
+    console.log('Estado atual:');
+    console.log('- Campeonatos encontrados:', campeonatos.length);
+    console.log('- Brasileirão encontrado:', brasileirao);
+    console.log('- Rodadas carregadas:', rodadas.length);
+    console.log('- Rodada atual (index):', currentRoundIndex);
+    console.log('- Configurações:', configuracoes);
+    console.log('- Sala geral ID:', salaGeral);
+    console.log('- Apostas carregadas:', apostas.length);
+    console.log('- Loading states:', { campeonatosLoading, rodadasLoading, configLoading, salaLoading });
+  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral, apostas, campeonatosLoading, rodadasLoading, configLoading, salaLoading]);
 
   if (loading) {
     return (
@@ -164,12 +166,13 @@ const Home = ({ user }: HomeProps) => {
     );
   }
 
+  // Se chegou até aqui, tem campeonato e rodadas, mas sem sala geral ainda
   if (!salaGeral) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl font-bold text-yellow-600 mb-2">Sala geral não encontrada</div>
-          <div className="text-gray-600">A sala geral do campeonato ainda não foi criada</div>
+          <div className="text-2xl font-bold text-yellow-600 mb-2">Preparando sala geral...</div>
+          <div className="text-gray-600">A sala geral do campeonato está sendo configurada</div>
         </div>
       </div>
     );
@@ -202,19 +205,13 @@ const Home = ({ user }: HomeProps) => {
             <h2 className="text-2xl font-bold text-gray-900">Rodadas do Brasileirão 2025</h2>
           </div>
           
-          {rodadas.length > 0 ? (
-            <BrasileiroRoundCarousel
-              rodadas={rodadas}
-              configuracoes={configuracoes}
-              getUserApostasCount={getUserApostasCount}
-              onBet={handleBet}
-              initialRoundIndex={currentRoundIndex}
-            />
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Nenhuma rodada com jogos disponível no momento.</p>
-            </div>
-          )}
+          <BrasileiroRoundCarousel
+            rodadas={rodadas}
+            configuracoes={configuracoes}
+            getUserApostasCount={getUserApostasCount}
+            onBet={handleBet}
+            initialRoundIndex={currentRoundIndex}
+          />
         </div>
 
         <QuickStats apostasCount={apostas.length} />
