@@ -18,10 +18,7 @@ const Index = () => {
     );
   }
 
-  if (!user) {
-    return <AuthPage />;
-  }
-
+  // Sempre mostrar a Home, mas com funcionalidades limitadas se não estiver logado
   return <Home user={user} />;
 };
 

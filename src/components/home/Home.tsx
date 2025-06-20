@@ -22,7 +22,7 @@ interface User {
 }
 
 interface HomeProps {
-  user: User;
+  user: User | null;
 }
 
 const Home = ({ user }: HomeProps) => {
@@ -42,6 +42,15 @@ const Home = ({ user }: HomeProps) => {
   };
 
   const handleBet = async (gameId: number, placar1: number, placar2: number, creditos: number) => {
+    if (!user) {
+      toast({
+        title: "Login necessário",
+        description: "Você precisa estar logado para fazer apostas.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!salaGeral) {
       toast({
         title: "Erro",
@@ -125,6 +134,7 @@ const Home = ({ user }: HomeProps) => {
   // Logs para debugging
   useEffect(() => {
     console.log('Estado atual da Home:');
+    console.log('- Usuário logado:', user ? user.nome : 'Não logado');
     console.log('- Campeonatos encontrados:', campeonatos.length);
     console.log('- Brasileirão encontrado:', brasileirao);
     console.log('- Rodadas carregadas:', rodadas.length);
@@ -133,67 +143,7 @@ const Home = ({ user }: HomeProps) => {
     console.log('- Sala geral ID:', salaGeral);
     console.log('- Apostas carregadas:', apostas.length);
     console.log('- Loading states:', { campeonatosLoading, rodadasLoading, configLoading, salaLoading });
-  }, [campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral, apostas, campeonatosLoading, rodadasLoading, configLoading, salaLoading]);
-
-  // Loading enquanto busca dados essenciais
-  if (campeonatosLoading || rodadasLoading || configLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-emerald-600 mb-2">Carregando...</div>
-          <div className="text-gray-600">Buscando dados do Brasileirão 2025</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Verificar se o campeonato foi encontrado
-  if (!brasileirao) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-red-600 mb-2">Campeonato não encontrado</div>
-          <div className="text-gray-600">O Campeonato Brasileiro 2025 ainda não foi configurado</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Verificar se existem rodadas
-  if (rodadas.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-yellow-600 mb-2">Nenhuma rodada encontrada</div>
-          <div className="text-gray-600">As rodadas do Brasileirão 2025 ainda não foram cadastradas</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Loading da sala geral
-  if (salaLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-emerald-600 mb-2">Preparando sala geral...</div>
-          <div className="text-gray-600">Configurando sua participação na sala geral</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Se não conseguiu criar/encontrar a sala geral
-  if (!salaGeral) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-red-600 mb-2">Erro na sala geral</div>
-          <div className="text-gray-600">Não foi possível configurar a sala geral. Tente recarregar a página.</div>
-        </div>
-      </div>
-    );
-  }
+  }, [user, campeonatos, brasileirao, rodadas, currentRoundIndex, configuracoes, salaGeral, apostas, campeonatosLoading, rodadasLoading, configLoading, salaLoading]);
 
   const totalJogos = rodadas.reduce((acc, r) => acc + (r.jogos?.length || 0), 0);
 
@@ -202,36 +152,91 @@ const Home = ({ user }: HomeProps) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <HomeHeader user={user} />
         
-        <ChampionshipInfo 
-          rodadasCount={rodadas.length} 
-          configuracoes={configuracoes} 
-        />
-
-        <DebugInfo
-          rodadasCount={rodadas.length}
-          currentRoundIndex={currentRoundIndex}
-          totalJogos={totalJogos}
-          salaGeralId={salaGeral?.toString() || ''}
-          campeonatoId={brasileirao?.id?.toString() || ''}
-        />
-
-        {/* Rodadas do campeonato */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-2 mb-6">
-            <Calendar className="h-6 w-6 text-emerald-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Rodadas do Brasileirão 2025</h2>
+        {/* Loading enquanto busca dados essenciais */}
+        {campeonatosLoading && (
+          <div className="text-center py-8">
+            <div className="text-xl font-bold text-emerald-600 mb-2">Carregando campeonatos...</div>
+            <div className="text-gray-600">Buscando dados do Brasileirão 2025</div>
           </div>
-          
-          <BrasileiroRoundCarousel
-            rodadas={rodadas}
-            configuracoes={configuracoes}
-            getUserApostasCount={getUserApostasCount}
-            onBet={handleBet}
-            initialRoundIndex={currentRoundIndex}
-          />
-        </div>
+        )}
 
-        <QuickStats apostasCount={apostas.length} />
+        {/* Verificar se o campeonato foi encontrado */}
+        {!campeonatosLoading && !brasileirao && (
+          <div className="text-center py-8">
+            <div className="text-xl font-bold text-yellow-600 mb-2">Campeonato não encontrado</div>
+            <div className="text-gray-600">O Campeonato Brasileiro 2025 ainda não foi configurado</div>
+          </div>
+        )}
+
+        {/* Mostrar informações do campeonato se encontrado */}
+        {brasileirao && (
+          <>
+            <ChampionshipInfo 
+              rodadasCount={rodadas.length} 
+              configuracoes={configuracoes} 
+            />
+
+            <DebugInfo
+              rodadasCount={rodadas.length}
+              currentRoundIndex={currentRoundIndex}
+              totalJogos={totalJogos}
+              salaGeralId={salaGeral?.toString() || ''}
+              campeonatoId={brasileirao?.id?.toString() || ''}
+            />
+
+            {/* Loading das rodadas */}
+            {rodadasLoading && (
+              <div className="text-center py-8">
+                <div className="text-xl font-bold text-emerald-600 mb-2">Carregando rodadas...</div>
+                <div className="text-gray-600">Buscando jogos do campeonato</div>
+              </div>
+            )}
+
+            {/* Verificar se existem rodadas */}
+            {!rodadasLoading && rodadas.length === 0 && (
+              <div className="text-center py-8">
+                <div className="text-xl font-bold text-yellow-600 mb-2">Nenhuma rodada encontrada</div>
+                <div className="text-gray-600">As rodadas do Brasileirão 2025 ainda não foram cadastradas</div>
+              </div>
+            )}
+
+            {/* Loading da sala geral */}
+            {salaLoading && (
+              <div className="text-center py-8">
+                <div className="text-xl font-bold text-emerald-600 mb-2">Preparando sala geral...</div>
+                <div className="text-gray-600">Configurando sua participação na sala geral</div>
+              </div>
+            )}
+
+            {/* Se não conseguiu criar/encontrar a sala geral */}
+            {!salaLoading && !salaGeral && rodadas.length > 0 && (
+              <div className="text-center py-8">
+                <div className="text-xl font-bold text-red-600 mb-2">Erro na sala geral</div>
+                <div className="text-gray-600">Não foi possível configurar a sala geral. Tente recarregar a página.</div>
+              </div>
+            )}
+
+            {/* Rodadas do campeonato */}
+            {rodadas.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center space-x-2 mb-6">
+                  <Calendar className="h-6 w-6 text-emerald-600" />
+                  <h2 className="text-2xl font-bold text-gray-900">Rodadas do Brasileirão 2025</h2>
+                </div>
+                
+                <BrasileiroRoundCarousel
+                  rodadas={rodadas}
+                  configuracoes={configuracoes}
+                  getUserApostasCount={getUserApostasCount}
+                  onBet={handleBet}
+                  initialRoundIndex={currentRoundIndex}
+                />
+              </div>
+            )}
+
+            <QuickStats apostasCount={apostas.length} />
+          </>
+        )}
       </div>
     </div>
   );
