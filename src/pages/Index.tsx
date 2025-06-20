@@ -1,134 +1,28 @@
 
 import React from 'react';
-import { useToast } from '@/hooks/use-toast';
-import Navbar from '@/components/layout/Navbar';
-import AuthPage from '@/components/auth/AuthPage';
-import Dashboard from '@/components/dashboard/Dashboard';
-import CreateRoomForm from '@/components/room/CreateRoomForm';
-import RoomView from '@/components/room/RoomView';
-import JoinRoomDialog from '@/components/room/JoinRoomDialog';
-import GlobalRanking from '@/components/ranking/GlobalRanking';
-import Home from '@/components/home/Home';
 import { useAuth } from '@/hooks/useAuth';
-
-type Page = 'home' | 'dashboard' | 'create-room' | 'room' | 'ranking';
+import AuthPage from '@/components/auth/AuthPage';
+import Home from '@/components/home/Home';
 
 const Index = () => {
-  const [currentPage, setCurrentPage] = React.useState<Page>('home');
-  const [currentRoomId, setCurrentRoomId] = React.useState<string>('');
-  const [showJoinDialog, setShowJoinDialog] = React.useState(false);
-  const { toast } = useToast();
-  const { user, userProfile, loading, signOut } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  const handleLogout = async () => {
-    const { error } = await signOut();
-    
-    if (error) {
-      toast({
-        title: "Erro no logout",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      setCurrentPage('home');
-      toast({
-        title: "Logout realizado",
-        description: "Até mais!",
-      });
-    }
-  };
-
-  const handleCreateRoom = (roomData: any) => {
-    console.log('Creating room:', roomData);
-    setCurrentPage('dashboard');
-  };
-
-  const handleEnterRoom = (roomId: string) => {
-    setCurrentRoomId(roomId);
-    setCurrentPage('room');
-  };
-
-  const handleJoinRoom = () => {
-    setShowJoinDialog(true);
-  };
-
-  const handleJoinSuccess = () => {
-    setCurrentPage('dashboard');
-  };
-
-  const handleNavigate = (page: string) => {
-    setCurrentPage(page as Page);
-  };
-
-  // Mostrar loading enquanto verifica autenticação
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl font-bold text-emerald-600 mb-2">BetRooms</div>
-          <div className="text-gray-600">Carregando...</div>
+          <div className="text-2xl font-bold text-emerald-600 mb-2">Carregando...</div>
+          <div className="text-gray-600">Verificando autenticação</div>
         </div>
       </div>
     );
   }
 
-  // Se não estiver autenticado, mostrar página de login
-  if (!user || !userProfile) {
+  if (!user) {
     return <AuthPage />;
   }
 
-  // Se estiver autenticado, mostrar aplicação
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar
-        userName={userProfile.nome}
-        credits={userProfile.creditos}
-        onLogout={handleLogout}
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-      />
-      
-      {currentPage === 'home' && (
-        <Home user={userProfile} />
-      )}
-      
-      {currentPage === 'dashboard' && (
-        <Dashboard
-          user={userProfile}
-          onCreateRoom={() => setCurrentPage('create-room')}
-          onJoinRoom={handleJoinRoom}
-          onViewRanking={() => setCurrentPage('ranking')}
-          onEnterRoom={handleEnterRoom}
-        />
-      )}
-      
-      {currentPage === 'create-room' && (
-        <CreateRoomForm
-          onBack={() => setCurrentPage('dashboard')}
-          onCreateRoom={handleCreateRoom}
-        />
-      )}
-      
-      {currentPage === 'room' && (
-        <RoomView
-          roomId={currentRoomId}
-          onBack={() => setCurrentPage('dashboard')}
-        />
-      )}
-      
-      {currentPage === 'ranking' && (
-        <GlobalRanking
-          onBack={() => setCurrentPage('dashboard')}
-        />
-      )}
-
-      <JoinRoomDialog
-        open={showJoinDialog}
-        onOpenChange={setShowJoinDialog}
-        onJoinSuccess={handleJoinSuccess}
-      />
-    </div>
-  );
+  return <Home user={user} />;
 };
 
 export default Index;

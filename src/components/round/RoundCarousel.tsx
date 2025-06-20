@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GameCard from '@/components/game/GameCard';
 
 interface Game {
-  id: string;
+  id: number;
   time1: string;
   time2: string;
   data_jogo: string;
@@ -20,7 +20,7 @@ interface Game {
 }
 
 interface Round {
-  id: string;
+  id: number;
   numero: number;
   data_inicio: string;
   data_fim: string;
@@ -30,7 +30,7 @@ interface Round {
 interface RoundCarouselProps {
   rounds: Round[];
   valorAposta: number;
-  onBet: (gameId: string, placar1: number, placar2: number, creditos: number) => void;
+  onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => void;
 }
 
 const RoundCarousel = ({ rounds, valorAposta, onBet }: RoundCarouselProps) => {

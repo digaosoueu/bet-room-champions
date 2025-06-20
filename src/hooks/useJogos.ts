@@ -12,7 +12,7 @@ type Jogo = Database['public']['Tables']['jogos']['Row'] & {
   };
 };
 
-export const useJogos = (campeonatoId?: string) => {
+export const useJogos = (campeonatoId?: number) => {
   const [jogos, setJogos] = useState<Jogo[]>([]);
   const [loading, setLoading] = useState(true);
 

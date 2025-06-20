@@ -1,127 +1,165 @@
 
 import { useState, useEffect } from 'react';
-import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
 
-interface UserProfile {
-  id: string;
+export interface UserProfile {
+  id: number;
+  auth_user_id: string;
   nome: string;
   email: string;
   creditos: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Configurar listener de mudanças de autenticação
+    // Verificar se já existe um usuário logado
+    getCurrentUser();
+
+    // Ouvir mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Buscar perfil do usuário após login
-          setTimeout(async () => {
-            await fetchUserProfile(session.user.id);
-          }, 0);
-        } else {
-          setUserProfile(null);
+        if (event === 'SIGNED_IN' && session) {
+          await getCurrentUser();
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
         }
-        setLoading(false);
+        setIsLoading(false);
       }
     );
-
-    // Verificar sessão existente
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      }
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (userId: string) => {
+  const getCurrentUser = async () => {
     try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('auth_user_id', userId)
-        .single();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (authUser) {
+        // Buscar perfil do usuário na tabela usuarios
+        const { data: profile, error } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('auth_user_id', authUser.id)
+          .single();
 
-      if (error) {
-        console.error('Erro ao buscar perfil:', error);
-        return;
+        if (error) {
+          console.error('Erro ao buscar perfil:', error);
+        } else if (profile) {
+          setUser(profile);
+        }
       }
-
-      setUserProfile(data);
     } catch (error) {
-      console.error('Erro ao buscar perfil:', error);
+      console.error('Erro ao obter usuário atual:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const signUp = async (nome: string, email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          nome: nome
+  const signUp = async (email: string, password: string, nome: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nome: nome
+          }
         }
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast({
+          title: "Conta criada com sucesso!",
+          description: "Bem-vindo ao nosso sistema de apostas esportivas.",
+        });
       }
-    });
-    
-    return { error };
+
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('Erro no cadastro:', error);
+      return { data: null, error };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    return { error };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Login realizado com sucesso!",
+        description: `Bem-vindo de volta!`,
+      });
+
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('Erro no login:', error);
+      return { data: null, error };
+    }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      setUser(null);
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso.",
+      });
+    } catch (error: any) {
+      console.error('Erro no logout:', error);
+      toast({
+        title: "Erro ao sair",
+        description: "Ocorreu um erro ao tentar sair.",
+        variant: "destructive",
+      });
+    }
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return { error: new Error('Usuário não autenticado') };
+    if (!user) return { error: 'Usuário não encontrado' };
 
-    const { error } = await supabase
-      .from('usuarios')
-      .update(updates)
-      .eq('auth_user_id', user.id);
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
 
-    if (!error && userProfile) {
-      setUserProfile({ ...userProfile, ...updates });
+      if (error) throw error;
+
+      setUser(data);
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('Erro ao atualizar perfil:', error);
+      return { data: null, error };
     }
-
-    return { error };
   };
 
   return {
     user,
-    session,
-    userProfile,
-    loading,
+    isLoading,
     signUp,
     signIn,
     signOut,
     updateProfile,
-    fetchUserProfile
+    refetch: getCurrentUser
   };
 };

@@ -9,7 +9,7 @@ import { Coins, Clock, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Game {
-  id: string;
+  id: number;
   time1: string;
   time2: string;
   data_jogo: string;
@@ -20,8 +20,8 @@ interface Game {
 interface GameBetCardProps {
   game: Game;
   configuracoes: Record<string, string>;
-  getUserApostasCount: (gameId: string) => number;
-  onBet: (gameId: string, placar1: number, placar2: number, creditos: number) => Promise<void>;
+  getUserApostasCount: (gameId: number) => number;
+  onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => Promise<void>;
 }
 
 const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBetCardProps) => {

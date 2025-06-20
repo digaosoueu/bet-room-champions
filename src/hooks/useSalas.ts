@@ -1,74 +1,49 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type Sala = Database['public']['Tables']['salas']['Row'] & {
-  campeonato: {
-    nome: string;
-  };
-  participantes_count: number;
+  participantes_count?: number;
 };
 
-type SalaInput = Database['public']['Tables']['salas']['Insert'];
-
-export const useSalas = () => {
+export const useSalas = (campeonatoId?: number) => {
   const [salas, setSalas] = useState<Sala[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchUserSalas();
-  }, []);
+    if (campeonatoId) {
+      fetchSalas();
+    }
+  }, [campeonatoId]);
 
-  const fetchUserSalas = async () => {
+  const fetchSalas = async () => {
+    if (!campeonatoId) return;
+
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      // Buscar o ID do usuário na tabela usuarios
-      const { data: usuarioData, error: usuarioError } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('auth_user_id', userData.user.id)
-        .single();
-
-      if (usuarioError || !usuarioData) {
-        console.error('Perfil do usuário não encontrado:', usuarioError);
-        return;
-      }
-
-      // Buscar salas que o usuário participa com contagem de participantes
       const { data, error } = await supabase
-        .from('participantes')
+        .from('salas')
         .select(`
-          sala:salas(
-            *,
-            campeonato:campeonatos(nome)
-          )
+          *,
+          participantes(count)
         `)
-        .eq('usuario_id', usuarioData.id);
+        .eq('campeonato_id', campeonatoId)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Erro ao buscar salas:', error);
         return;
       }
 
-      const salasWithCount = await Promise.all(
-        (data?.map(p => p.sala).filter(Boolean) || []).map(async (sala: any) => {
-          // Contar participantes para cada sala
-          const { count } = await supabase
-            .from('participantes')
-            .select('*', { count: 'exact', head: true })
-            .eq('sala_id', sala.id);
+      // Processar dados para incluir contagem de participantes
+      const salasWithCount = (data || []).map(sala => ({
+        ...sala,
+        participantes_count: Array.isArray(sala.participantes) ? sala.participantes.length : 0
+      }));
 
-          return {
-            ...sala,
-            participantes_count: count || 0
-          };
-        })
-      );
-
-      setSalas(salasWithCount as Sala[]);
+      setSalas(salasWithCount);
     } catch (error) {
       console.error('Erro ao buscar salas:', error);
     } finally {
@@ -76,105 +51,139 @@ export const useSalas = () => {
     }
   };
 
-  const createSala = async (salaData: Omit<SalaInput, 'dono_id'>) => {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      throw new Error('Usuário não autenticado');
-    }
+  const createSala = async (nome: string, tipo: 'publica' | 'privada', valorAposta: number) => {
+    try {
+      // Buscar o usuário autenticado
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        throw new Error('Usuário não autenticado');
+      }
 
-    // Buscar o ID do usuário na tabela usuarios
-    const { data: usuarioData, error: usuarioError } = await supabase
-      .from('usuarios')
-      .select('id')
-      .eq('auth_user_id', userData.user.id)
-      .single();
+      // Buscar o perfil do usuário
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', userData.user.id)
+        .single();
 
-    if (usuarioError || !usuarioData) {
-      throw new Error('Perfil do usuário não encontrado');
-    }
+      if (usuarioError || !usuarioData) {
+        throw new Error('Perfil do usuário não encontrado');
+      }
 
-    const { data, error } = await supabase
-      .from('salas')
-      .insert({
-        ...salaData,
-        dono_id: usuarioData.id
-      })
-      .select()
-      .single();
+      if (!campeonatoId) {
+        throw new Error('Campeonato não especificado');
+      }
 
-    if (error) {
-      throw error;
-    }
+      const { data, error } = await supabase
+        .from('salas')
+        .insert({
+          nome,
+          tipo,
+          valor_aposta: valorAposta,
+          dono_id: usuarioData.id,
+          campeonato_id: campeonatoId
+        })
+        .select()
+        .single();
 
-    await fetchUserSalas();
-    return data;
-  };
+      if (error) {
+        console.error('Erro ao criar sala:', error);
+        throw error;
+      }
 
-  const joinSala = async (salaId: string, codigo?: string) => {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      throw new Error('Usuário não autenticado');
-    }
-
-    // Buscar o ID do usuário na tabela usuarios
-    const { data: usuarioData, error: usuarioError } = await supabase
-      .from('usuarios')
-      .select('id, creditos')
-      .eq('auth_user_id', userData.user.id)
-      .single();
-
-    if (usuarioError || !usuarioData) {
-      throw new Error('Perfil do usuário não encontrado');
-    }
-
-    // Buscar dados da sala
-    const { data: salaData, error: salaError } = await supabase
-      .from('salas')
-      .select('*')
-      .eq('id', salaId)
-      .single();
-
-    if (salaError || !salaData) {
-      throw new Error('Sala não encontrada');
-    }
-
-    // Verificar se é sala privada e se o código está correto
-    if (salaData.tipo === 'privada' && salaData.codigo_acesso !== codigo) {
-      throw new Error('Código de acesso inválido');
-    }
-
-    // Verificar se o usuário tem créditos suficientes para salas pagas
-    if (salaData.tipo !== 'geral' && usuarioData.creditos < salaData.valor_aposta) {
-      throw new Error('Créditos insuficientes');
-    }
-
-    // Adicionar usuário como participante
-    const { error: participanteError } = await supabase
-      .from('participantes')
-      .insert({
-        usuario_id: usuarioData.id,
-        sala_id: salaId
+      toast({
+        title: "Sala criada com sucesso!",
+        description: `A sala "${nome}" foi criada.`,
       });
 
-    if (participanteError) {
-      throw participanteError;
+      await fetchSalas();
+      return data;
+    } catch (error: any) {
+      console.error('Erro ao criar sala:', error);
+      toast({
+        title: "Erro ao criar sala",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+      throw error;
     }
+  };
 
-    // Debitar créditos se for sala paga
-    if (salaData.tipo !== 'geral') {
-      const { error: creditoError } = await supabase
-        .from('usuarios')
-        .update({
-          creditos: usuarioData.creditos - salaData.valor_aposta
-        })
-        .eq('id', usuarioData.id);
-
-      if (creditoError) {
-        throw creditoError;
+  const joinSala = async (salaId: number, codigoAcesso?: string) => {
+    try {
+      // Buscar o usuário autenticado
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        throw new Error('Usuário não autenticado');
       }
-    }
 
-    await fetchUserSalas();
+      // Buscar o perfil do usuário
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', userData.user.id)
+        .single();
+
+      if (usuarioError || !usuarioData) {
+        throw new Error('Perfil do usuário não encontrado');
+      }
+
+      // Verificar se a sala existe e se o código está correto (se necessário)
+      const { data: salaData, error: salaError } = await supabase
+        .from('salas')
+        .select('*')
+        .eq('id', salaId)
+        .single();
+
+      if (salaError || !salaData) {
+        throw new Error('Sala não encontrada');
+      }
+
+      if (salaData.tipo === 'privada' && salaData.codigo_acesso !== codigoAcesso) {
+        throw new Error('Código de acesso inválido');
+      }
+
+      // Verificar se já é participante
+      const { data: participanteExists } = await supabase
+        .from('participantes')
+        .select('id')
+        .eq('usuario_id', usuarioData.id)
+        .eq('sala_id', salaId)
+        .maybeSingle();
+
+      if (participanteExists) {
+        throw new Error('Você já é participante desta sala');
+      }
+
+      // Adicionar como participante
+      const { error: insertError } = await supabase
+        .from('participantes')
+        .insert({
+          usuario_id: usuarioData.id,
+          sala_id: salaId
+        });
+
+      if (insertError) {
+        console.error('Erro ao entrar na sala:', insertError);
+        throw insertError;
+      }
+
+      toast({
+        title: "Entrada realizada com sucesso!",
+        description: `Você agora faz parte da sala "${salaData.nome}".`,
+      });
+
+      await fetchSalas();
+      return salaData;
+    } catch (error: any) {
+      console.error('Erro ao entrar na sala:', error);
+      toast({
+        title: "Erro ao entrar na sala",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   return {
@@ -182,6 +191,6 @@ export const useSalas = () => {
     loading,
     createSala,
     joinSala,
-    refetch: fetchUserSalas
+    refetch: fetchSalas
   };
 };
