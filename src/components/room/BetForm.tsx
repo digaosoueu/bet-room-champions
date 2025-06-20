@@ -7,10 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Coins, Info } from 'lucide-react';
 
 interface BetFormProps {
-  gameId: string;
+  gameId: number;
   valorAposta: number;
   apostasExistentes: number;
-  onBet: (gameId: string, placar1: number, placar2: number, creditos: number) => void;
+  onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => void;
 }
 
 const BetForm = ({ gameId, valorAposta, apostasExistentes, onBet }: BetFormProps) => {
