@@ -7,6 +7,7 @@ import BetForm from './BetForm';
 import RoomRanking from './RoomRanking';
 import { useJogos } from '@/hooks/useJogos';
 import { useApostas } from '@/hooks/useApostas';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
 interface RoomViewProps {
@@ -16,6 +17,7 @@ interface RoomViewProps {
 
 const RoomView = ({ roomId, onBack }: RoomViewProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { apostas, createAposta } = useApostas(roomId);
   
   // Mock data - em produção viria do Supabase
@@ -56,6 +58,15 @@ const RoomView = ({ roomId, onBack }: RoomViewProps) => {
   ]);
 
   const handleBet = async (gameId: number, placar1: number, placar2: number, creditos: number) => {
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para apostar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Verificar se o jogo já começou
       const game = games.find(g => g.id === gameId);
@@ -75,6 +86,7 @@ const RoomView = ({ roomId, onBack }: RoomViewProps) => {
       const creditosNecessarios = apostasExistentes.length === 0 ? 0 : creditos;
 
       await createAposta({
+        usuario_id: user.id,
         sala_id: roomId,
         jogo_id: gameId,
         placar_time1: placar1,
