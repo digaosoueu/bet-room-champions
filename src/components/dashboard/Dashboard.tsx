@@ -92,6 +92,7 @@ const Dashboard = ({ user, onCreateRoom, onJoinRoom, onViewRanking, onEnterRoom 
                   key={room.id}
                   room={{
                     ...room,
+                    participantes_count: room.participantes_count || 0,
                     campeonato: { nome: 'Campeonato Brasileiro 2025' }
                   }}
                   onEnterRoom={onEnterRoom}

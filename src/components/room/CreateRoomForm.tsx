@@ -41,7 +41,7 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
 
     setIsSubmitting(true);
     try {
-      await createSala({
+      const newRoom = await createSala({
         nome: formData.nome,
         tipo: formData.tipo,
         valor_aposta: formData.valor_aposta,
@@ -53,7 +53,7 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
         description: `A sala "${formData.nome}" foi criada e você já está participando.`,
       });
 
-      onCreateRoom(formData);
+      onCreateRoom(newRoom);
     } catch (error: any) {
       toast({
         title: "Erro ao criar sala",
