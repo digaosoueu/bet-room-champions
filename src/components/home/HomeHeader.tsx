@@ -3,7 +3,7 @@ import React from 'react';
 import { Coins } from 'lucide-react';
 
 interface User {
-  id: string;
+  id: number;
   nome: string;
   email: string;
   creditos: number;
