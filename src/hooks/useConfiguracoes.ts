@@ -1,38 +1,45 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
-
-type Configuracao = Database['public']['Tables']['configuracoes']['Row'];
 
 export const useConfiguracoes = () => {
   const [configuracoes, setConfiguracoes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('useConfiguracoes: Iniciando busca de configurações');
     fetchConfiguracoes();
   }, []);
 
   const fetchConfiguracoes = async () => {
     try {
+      console.log('useConfiguracoes: Buscando configurações do sistema');
+      
       const { data, error } = await supabase
         .from('configuracoes')
-        .select('*');
+        .select('chave, valor');
 
       if (error) {
-        console.error('Erro ao buscar configurações:', error);
+        console.error('useConfiguracoes: Erro ao buscar configurações:', error);
+        setConfiguracoes({});
         return;
       }
 
-      const configMap = (data || []).reduce((acc, config) => {
-        acc[config.chave] = config.valor;
-        return acc;
-      }, {} as Record<string, string>);
-
-      setConfiguracoes(configMap);
+      console.log('useConfiguracoes: Configurações encontradas:', data?.length || 0);
+      
+      // Converter array para objeto
+      const configObj: Record<string, string> = {};
+      data?.forEach(config => {
+        configObj[config.chave] = config.valor;
+      });
+      
+      console.log('useConfiguracoes: Configurações processadas:', configObj);
+      setConfiguracoes(configObj);
     } catch (error) {
-      console.error('Erro ao buscar configurações:', error);
+      console.error('useConfiguracoes: Erro inesperado ao buscar configurações:', error);
+      setConfiguracoes({});
     } finally {
+      console.log('useConfiguracoes: Finalizando carregamento');
       setLoading(false);
     }
   };

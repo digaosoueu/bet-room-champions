@@ -1,138 +1,86 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 export const useGeneralRoom = (campeonatoId?: number) => {
   const [salaGeral, setSalaGeral] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
+    console.log('useGeneralRoom: Hook iniciado com campeonatoId:', campeonatoId);
+    
     if (campeonatoId) {
-      fetchOrCreateSalaGeral();
+      fetchOrCreateGeneralRoom();
     } else {
-      setLoading(false);
+      console.log('useGeneralRoom: Nenhum campeonato fornecido, mantendo loading como true');
+      setLoading(true);
     }
   }, [campeonatoId]);
 
-  const fetchOrCreateSalaGeral = async () => {
-    if (!campeonatoId) return;
+  const fetchOrCreateGeneralRoom = async () => {
+    if (!campeonatoId) {
+      console.log('useGeneralRoom: Sem campeonatoId, abortando fetch');
+      return;
+    }
 
     try {
-      console.log('Buscando/criando sala geral para campeonato:', campeonatoId);
+      console.log('useGeneralRoom: Buscando sala geral para campeonato:', campeonatoId);
       
-      // Primeiro verificar se já existe uma sala geral para este campeonato
-      const { data: salaExistente, error: searchError } = await supabase
+      // Buscar sala geral existente (dono_id = 0 indica sala geral)
+      const { data: existingRoom, error: fetchError } = await supabase
         .from('salas')
-        .select('id, nome, tipo')
+        .select('id')
         .eq('campeonato_id', campeonatoId)
-        .eq('tipo', 'geral')
-        .maybeSingle();
+        .eq('dono_id', 0)
+        .eq('tipo', 'publica')
+        .single();
 
-      if (searchError) {
-        console.error('Erro ao buscar sala geral:', searchError);
-        setLoading(false);
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('useGeneralRoom: Erro ao buscar sala geral:', fetchError);
+        setSalaGeral(null);
         return;
       }
 
-      if (salaExistente) {
-        console.log('Sala geral encontrada:', salaExistente);
-        setSalaGeral(salaExistente.id);
-        await ensureUserInGeneralRoom(salaExistente.id);
-      } else {
-        console.log('Sala geral não encontrada - criando uma nova');
-        await createGeneralRoom();
+      if (existingRoom) {
+        console.log('useGeneralRoom: Sala geral encontrada:', existingRoom.id);
+        setSalaGeral(existingRoom.id);
+        return;
       }
-    } catch (error) {
-      console.error('Erro ao buscar/criar sala geral:', error);
-      setLoading(false);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const createGeneralRoom = async () => {
-    if (!campeonatoId) return;
-
-    try {
-      console.log('Criando sala geral para o campeonato');
-      
-      // Criar a sala geral com dono_id = 0
-      const { data: novaSala, error: createError } = await supabase
+      // Criar sala geral se não existir
+      console.log('useGeneralRoom: Criando nova sala geral');
+      const { data: newRoom, error: createError } = await supabase
         .from('salas')
         .insert({
-          nome: 'Sala Geral - Brasileirão 2025',
-          tipo: 'geral',
+          nome: 'Sala Geral',
           campeonato_id: campeonatoId,
           dono_id: 0,
-          valor_aposta: 0 // Apostas grátis na sala geral
+          tipo: 'publica',
+          valor_aposta: 0
         })
-        .select()
+        .select('id')
         .single();
 
       if (createError) {
-        console.error('Erro ao criar sala geral:', createError);
+        console.error('useGeneralRoom: Erro ao criar sala geral:', createError);
+        setSalaGeral(null);
         return;
       }
 
-      console.log('Sala geral criada com sucesso:', novaSala);
-      setSalaGeral(novaSala.id);
-      
-      // Garantir que o usuário seja participante da sala
-      await ensureUserInGeneralRoom(novaSala.id);
+      console.log('useGeneralRoom: Nova sala geral criada:', newRoom.id);
+      setSalaGeral(newRoom.id);
     } catch (error) {
-      console.error('Erro ao criar sala geral:', error);
+      console.error('useGeneralRoom: Erro inesperado:', error);
+      setSalaGeral(null);
+    } finally {
+      console.log('useGeneralRoom: Finalizando carregamento');
+      setLoading(false);
     }
   };
 
-  const ensureUserInGeneralRoom = async (salaId: number) => {
-    try {
-      // Buscar o usuário autenticado
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      // Buscar o perfil do usuário
-      const { data: usuarioData } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('auth_user_id', userData.user.id)
-        .single();
-
-      if (!usuarioData) {
-        console.error('Perfil do usuário não encontrado');
-        return;
-      }
-
-      // Verificar se já é participante
-      const { data: participanteExists } = await supabase
-        .from('participantes')
-        .select('id')
-        .eq('usuario_id', usuarioData.id)
-        .eq('sala_id', salaId)
-        .maybeSingle();
-
-      if (!participanteExists) {
-        // Adicionar como participante da sala geral
-        const { error: insertError } = await supabase
-          .from('participantes')
-          .insert({
-            usuario_id: usuarioData.id,
-            sala_id: salaId
-          });
-
-        if (insertError) {
-          console.error('Erro ao adicionar usuário à sala geral:', insertError);
-        } else {
-          console.log('Usuário adicionado à sala geral com sucesso');
-        }
-      } else {
-        console.log('Usuário já é participante da sala geral');
-      }
-    } catch (error) {
-      console.error('Erro ao verificar participação na sala geral:', error);
-    }
+  return {
+    salaGeral,
+    loading,
+    refetch: fetchOrCreateGeneralRoom
   };
-
-  return { salaGeral, loading };
 };

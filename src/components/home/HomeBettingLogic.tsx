@@ -1,10 +1,5 @@
 
-import React from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
-
-type ApostaInput = Database['public']['Tables']['apostas']['Insert'];
+import { useCallback } from 'react';
 
 interface User {
   id: number;
@@ -19,7 +14,7 @@ interface HomeBettingLogicProps {
   rodadas: any[];
   configuracoes: Record<string, string>;
   apostas: any[];
-  createAposta: (data: Omit<ApostaInput, 'usuario_id'>) => Promise<any>;
+  createAposta: (aposta: any) => Promise<any>;
   refetchApostas: () => void;
 }
 
@@ -32,166 +27,52 @@ const HomeBettingLogic = ({
   createAposta,
   refetchApostas
 }: HomeBettingLogicProps) => {
-  const { toast } = useToast();
-
-  const handleBet = async (gameId: number, placar1: number, placar2: number, creditos: number) => {
-    if (!user) {
-      toast({
-        title: "Login necessário",
-        description: "Você precisa estar logado para fazer apostas.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!salaGeral) {
-      toast({
-        title: "Erro",
-        description: "Sala geral não encontrada. Aguarde o carregamento.",
-        variant: "destructive"
-      });
+  
+  const handleBet = useCallback(async (gameId: number, placar1: number, placar2: number, creditos: number) => {
+    if (!user || !salaGeral) {
+      console.error('HomeBettingLogic: Usuário ou sala não encontrados');
       return;
     }
 
     try {
-      console.log('Iniciando aposta:', { gameId, placar1, placar2, creditos, salaGeral, userCredits: user.creditos });
-
-      // Verificar apostas existentes no jogo
-      const apostasNoJogo = getUserApostasCount(gameId);
-      console.log('Apostas existentes no jogo:', apostasNoJogo);
+      console.log('HomeBettingLogic: Criando aposta:', { gameId, placar1, placar2, creditos });
       
-      // Regra: máximo 3 apostas por jogo
-      if (apostasNoJogo >= 3) {
-        toast({
-          title: "Limite atingido",
-          description: "Máximo de 3 apostas por jogo atingido",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Calcular custo da aposta baseado nas regras de negócio
-      let custoReal = 0;
-      if (apostasNoJogo === 0) {
-        custoReal = 0; // 1ª aposta gratuita
-      } else if (apostasNoJogo === 1) {
-        custoReal = 100; // 2ª aposta - 100 créditos
-      } else if (apostasNoJogo === 2) {
-        custoReal = 150; // 3ª aposta - 150 créditos
-      }
-
-      console.log('Custo da aposta:', custoReal);
-
-      // Verificar se usuário tem créditos suficientes (apenas para apostas pagas)
-      if (custoReal > 0 && user.creditos < custoReal) {
-        toast({
-          title: "Créditos insuficientes",
-          description: `Você precisa de ${custoReal} créditos para fazer esta aposta`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Verificar limite de apostas extras na rodada (apenas para 2ª e 3ª apostas)
-      if (custoReal > 0) {
-        const apostasExtrasRodada = getTotalApostasExtrasRodada(gameId);
-        console.log('Apostas extras na rodada:', apostasExtrasRodada);
-        
-        if (apostasExtrasRodada >= 10) {
-          toast({
-            title: "Limite atingido",
-            description: "Limite de 10 apostas extras por rodada atingido",
-            variant: "destructive"
-          });
-          return;
-        }
-      }
-
-      // Verificar se o jogo ainda não começou (5 min de tolerância)
-      const rodadaAtual = rodadas.find(r => r.jogos.some(j => j.id === gameId));
-      const jogo = rodadaAtual?.jogos.find(j => j.id === gameId);
-      if (jogo) {
-        const dataJogo = new Date(jogo.data_jogo);
-        const agora = new Date();
-        if (agora.getTime() > dataJogo.getTime() - 5 * 60 * 1000) {
-          toast({
-            title: "Apostas encerradas",
-            description: "Não é possível apostar em jogos que já aconteceram ou estão prestes a começar",
-            variant: "destructive"
-          });
-          return;
-        }
-      }
-
-      console.log('Criando aposta no banco...');
-
-      // Criar a aposta
       await createAposta({
-        jogo_id: gameId,
+        usuario_id: user.id,
         sala_id: salaGeral,
+        jogo_id: gameId,
         placar_time1: placar1,
         placar_time2: placar2,
-        creditos_apostados: custoReal
+        creditos_apostados: creditos
       });
 
-      console.log('Aposta criada, debitando créditos se necessário...');
-
-      // Debitar créditos se for aposta paga
-      if (custoReal > 0) {
-        const { error: creditError } = await supabase
-          .from('usuarios')
-          .update({ creditos: user.creditos - custoReal })
-          .eq('id', user.id);
-
-        if (creditError) {
-          console.error('Erro ao debitar créditos:', creditError);
-          throw new Error('Erro ao debitar créditos');
-        }
-
-        console.log('Créditos debitados com sucesso');
-      }
-
-      const tipoAposta = custoReal === 0 ? "gratuita" : `custou ${custoReal} créditos`;
-      toast({
-        title: "Aposta realizada!",
-        description: `Aposta de ${placar1} x ${placar2} registrada (${tipoAposta})`,
-      });
-
-      console.log('Aposta finalizada com sucesso');
-
-      // Recarregar apostas
-      refetchApostas();
-
-    } catch (error: any) {
-      console.error('Erro ao fazer aposta:', error);
-      toast({
-        title: "Erro ao apostar",
-        description: error.message || "Tente novamente",
-        variant: "destructive"
-      });
+      console.log('HomeBettingLogic: Aposta criada com sucesso');
+    } catch (error) {
+      console.error('HomeBettingLogic: Erro ao criar aposta:', error);
+      throw error;
     }
-  };
+  }, [user, salaGeral, createAposta]);
 
-  const getUserApostasCount = (gameId: number) => {
+  const getUserApostasCount = useCallback((gameId: number) => {
     if (!user) return 0;
-    return apostas.filter(aposta => aposta.jogo_id === gameId && aposta.usuario_id === user.id).length;
+    
+    const userApostas = apostas.filter(aposta => 
+      aposta.jogo_id === gameId && aposta.usuario_id === user.id
+    );
+    
+    return userApostas.length;
+  }, [apostas, user]);
+
+  const getTotalApostasExtrasRodada = useCallback((gameId: number) => {
+    const gameApostas = apostas.filter(aposta => aposta.jogo_id === gameId);
+    return gameApostas.reduce((total, aposta) => total + (aposta.creditos_apostados || 0), 0);
+  }, [apostas]);
+
+  return {
+    handleBet,
+    getUserApostasCount,
+    getTotalApostasExtrasRodada
   };
-
-  const getTotalApostasExtrasRodada = (gameId: number) => {
-    // Encontrar a rodada do jogo
-    const rodadaAtual = rodadas.find(r => r.jogos.some(j => j.id === gameId));
-    if (!rodadaAtual) return 0;
-
-    // Contar apostas extras (que custaram créditos) em todos os jogos da rodada
-    const jogosRodada = rodadaAtual.jogos.map(j => j.id);
-    return apostas.filter(aposta => 
-      jogosRodada.includes(aposta.jogo_id) && 
-      aposta.creditos_apostados > 0 &&
-      aposta.usuario_id === user?.id
-    ).length;
-  };
-
-  return { handleBet, getUserApostasCount, getTotalApostasExtrasRodada };
 };
 
 export default HomeBettingLogic;
