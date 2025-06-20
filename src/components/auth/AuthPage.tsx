@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +51,7 @@ const AuthPage = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await signUp(registerData.nome, registerData.email, registerData.password);
+      const { error } = await signUp(registerData.email, registerData.password, registerData.nome);
       
       if (error) {
         if (error.message.includes('already registered')) {
