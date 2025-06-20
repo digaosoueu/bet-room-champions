@@ -40,9 +40,12 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
 
     setIsSubmitting(true);
     try {
+      // Convert 'geral' to 'publica' for the API call since createSala doesn't accept 'geral'
+      const tipoParaAPI = formData.tipo === 'geral' ? 'publica' : formData.tipo;
+      
       const newRoom = await createSala(
         formData.nome,
-        formData.tipo,
+        tipoParaAPI as 'publica' | 'privada',
         parseInt(formData.campeonato_id)
       );
 
