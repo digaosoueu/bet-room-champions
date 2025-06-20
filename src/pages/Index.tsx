@@ -5,7 +5,7 @@ import AuthPage from '@/components/auth/AuthPage';
 import Home from '@/components/home/Home';
 
 const Index = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, signOut } = useAuth();
 
   if (isLoading) {
     return (
@@ -19,7 +19,7 @@ const Index = () => {
   }
 
   // Sempre mostrar a Home, mas com funcionalidades limitadas se não estiver logado
-  return <Home user={user} />;
+  return <Home user={user} onLogout={signOut} />;
 };
 
 export default Index;
