@@ -37,7 +37,7 @@ const Home = ({ user, onLogout }: HomeProps) => {
   const { salaGeral, loading: salaLoading } = useGeneralRoom(brasileirao?.id);
   const { apostas, createAposta, refetch: refetchApostas } = useApostas(salaGeral || undefined);
 
-  const { handleBet, getUserApostasCount } = HomeBettingLogic({
+  const { handleBet, getUserApostasCount, getTotalApostasExtrasRodada } = HomeBettingLogic({
     user,
     salaGeral,
     rodadas,
@@ -115,6 +115,7 @@ const Home = ({ user, onLogout }: HomeProps) => {
                   rodadas={rodadas}
                   configuracoes={configuracoes}
                   getUserApostasCount={getUserApostasCount}
+                  getTotalApostasExtrasRodada={getTotalApostasExtrasRodada}
                   onBet={handleBet}
                   initialRoundIndex={currentRoundIndex}
                 />

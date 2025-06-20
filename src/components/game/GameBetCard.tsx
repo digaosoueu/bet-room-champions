@@ -21,38 +21,61 @@ interface GameBetCardProps {
   game: Game;
   configuracoes: Record<string, string>;
   getUserApostasCount: (gameId: number) => number;
+  getTotalApostasExtrasRodada: (gameId: number) => number;
   onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => Promise<void>;
 }
 
-const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBetCardProps) => {
+const GameBetCard = ({ game, configuracoes, getUserApostasCount, getTotalApostasExtrasRodada, onBet }: GameBetCardProps) => {
   const [placar1, setPlacar1] = useState<number>(0);
   const [placar2, setPlacar2] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const apostasExistentes = getUserApostasCount(game.id);
+  const apostasExtrasRodada = getTotalApostasExtrasRodada(game.id);
   const dataJogo = new Date(game.data_jogo);
   const agora = new Date();
-  const jogoJaAconteceu = agora.getTime() > dataJogo.getTime() - 5 * 60 * 1000;;
+  const jogoJaAconteceu = agora.getTime() > dataJogo.getTime() - 5 * 60 * 1000;
   const tempoParaJogo = dataJogo.getTime() - agora.getTime();
   const horasParaJogo = Math.floor(tempoParaJogo / (1000 * 60 * 60));
 
   const getCustoAposta = () => {
-    if (apostasExistentes === 0) return 0;
-    if (apostasExistentes === 1) return parseInt(configuracoes.valor_segunda_aposta || '50');
-    if (apostasExistentes >= 2) return parseInt(configuracoes.valor_terceira_aposta || '100');
+    if (apostasExistentes === 0) return 0; // 1ª aposta gratuita
+    if (apostasExistentes === 1) return 100; // 2ª aposta - 100 créditos
+    if (apostasExistentes === 2) return 150; // 3ª aposta - 150 créditos
     return 0;
   };
 
-  const canMakeMoreBets = apostasExistentes < 3 && !jogoJaAconteceu;
+  const canMakeMoreBets = () => {
+    // Máximo 3 apostas por jogo
+    if (apostasExistentes >= 3) return false;
+    
+    // Não pode apostar se jogo já aconteceu
+    if (jogoJaAconteceu) return false;
+    
+    // Para apostas extras (2ª e 3ª), verificar limite da rodada
+    if (apostasExistentes > 0) {
+      const limiteExtrasRodada = 10; // Máximo 10 apostas extras por rodada
+      if (apostasExtrasRodada >= limiteExtrasRodada) return false;
+    }
+    
+    return true;
+  };
+
+  const getMotivoBloqueio = () => {
+    if (jogoJaAconteceu) return "Jogo já aconteceu";
+    if (apostasExistentes >= 3) return "Limite de 3 apostas por jogo atingido";
+    if (apostasExistentes > 0 && apostasExtrasRodada >= 10) return "Limite de 10 apostas extras por rodada atingido";
+    return "";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (jogoJaAconteceu) {
+    if (!canMakeMoreBets()) {
       toast({
-        title: "Apostas encerradas",
-        description: "Não é possível apostar em jogos que já aconteceram",
+        title: "Não é possível apostar",
+        description: getMotivoBloqueio(),
         variant: "destructive",
       });
       return;
@@ -63,10 +86,15 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBe
       const creditos = getCustoAposta();
       await onBet(game.id, placar1, placar2, creditos);
       
+      const tipoAposta = creditos === 0 ? "gratuita" : `custou ${creditos} créditos`;
       toast({
         title: "Aposta realizada!",
-        description: `Você apostou no placar ${placar1}x${placar2}${creditos > 0 ? ` por ${creditos} créditos` : ' (grátis)'}`,
+        description: `Você apostou no placar ${placar1}x${placar2} (${tipoAposta})`,
       });
+      
+      // Reset form
+      setPlacar1(0);
+      setPlacar2(0);
     } catch (error: any) {
       toast({
         title: "Erro ao apostar",
@@ -102,7 +130,7 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBe
             <span className="text-sm text-gray-600">Apostas:</span>
             <Badge variant="secondary">{apostasExistentes}/3</Badge>
           </div>
-          {!jogoJaAconteceu && (
+          {!jogoJaAconteceu && canMakeMoreBets() && (
             <div className="flex items-center space-x-2">
               <Coins className="h-4 w-4 text-emerald-600" />
               <span className="text-sm font-medium">
@@ -112,13 +140,22 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBe
           )}
         </div>
 
-        {jogoJaAconteceu ? (
+        {/* Informação sobre apostas extras na rodada */}
+        {apostasExistentes > 0 && (
+          <div className="mb-4 p-2 bg-blue-50 rounded-lg">
+            <p className="text-xs text-blue-700">
+              Apostas extras na rodada: {apostasExtrasRodada}/10
+            </p>
+          </div>
+        )}
+
+        {!canMakeMoreBets() ? (
           <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
             <Lock className="h-6 w-6 mx-auto mb-2" />
-            <p className="font-medium">Apostas encerradas</p>
-            <p className="text-sm">O jogo já aconteceu</p>
+            <p className="font-medium">Apostas bloqueadas</p>
+            <p className="text-sm">{getMotivoBloqueio()}</p>
           </div>
-        ) : canMakeMoreBets ? (
+        ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-3 gap-4 items-end">
               <div className="space-y-2">
@@ -131,6 +168,7 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBe
                   value={placar1}
                   onChange={(e) => setPlacar1(Number(e.target.value))}
                   className="text-center text-lg font-bold"
+                  required
                 />
               </div>
               
@@ -148,6 +186,7 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBe
                   value={placar2}
                   onChange={(e) => setPlacar2(Number(e.target.value))}
                   className="text-center text-lg font-bold"
+                  required
                 />
               </div>
             </div>
@@ -158,14 +197,12 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBe
               disabled={loading}
             >
               <Coins className="h-4 w-4 mr-2" />
-              {loading ? 'Apostando...' : `Apostar ${getCustoAposta() === 0 ? '(Grátis)' : `(${getCustoAposta()} créditos)`}`}
+              {loading ? 'Apostando...' : 
+                getCustoAposta() === 0 ? 'Apostar (Grátis)' : 
+                `Apostar (${getCustoAposta()} créditos)`
+              }
             </Button>
           </form>
-        ) : (
-          <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
-            <p className="font-medium">Limite de apostas atingido</p>
-            <p className="text-sm">Você já fez 3 apostas neste jogo</p>
-          </div>
         )}
       </CardContent>
     </Card>

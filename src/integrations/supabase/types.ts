@@ -357,6 +357,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      descontar_creditos: {
+        Args: { user_id_param: string; valor: number }
+        Returns: undefined
+      }
       generate_room_code: {
         Args: Record<PropertyKey, never>
         Returns: string
