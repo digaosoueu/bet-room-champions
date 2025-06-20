@@ -2,6 +2,9 @@
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type ApostaInput = Database['public']['Tables']['apostas']['Insert'];
 
 interface User {
   id: number;
@@ -16,7 +19,7 @@ interface HomeBettingLogicProps {
   rodadas: any[];
   configuracoes: Record<string, string>;
   apostas: any[];
-  createAposta: (data: any) => Promise<void>;
+  createAposta: (data: Omit<ApostaInput, 'usuario_id'>) => Promise<any>;
   refetchApostas: () => void;
 }
 
