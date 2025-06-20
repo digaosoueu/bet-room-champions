@@ -23,7 +23,7 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('useAuth: Iniciando sistema de autenticação');
     
-    // Configurar listener de mudanças de auth
+    // Configurar listener de mudanças de auth PRIMEIRO
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log('useAuth: Auth state changed:', event, newSession?.user?.email);
@@ -31,18 +31,28 @@ export const useAuth = () => {
         setSession(newSession);
         
         if (event === 'SIGNED_IN' && newSession?.user) {
+          console.log('useAuth: Usuário logado, carregando perfil...');
           await loadUserProfile(newSession.user);
         } else if (event === 'SIGNED_OUT') {
+          console.log('useAuth: Usuário deslogado');
           setUser(null);
           setIsLoading(false);
         } else if (event === 'TOKEN_REFRESHED' && newSession?.user) {
+          console.log('useAuth: Token atualizado, recarregando perfil...');
           await loadUserProfile(newSession.user);
+        } else if (event === 'INITIAL_SESSION') {
+          console.log('useAuth: Sessão inicial verificada');
+          if (newSession?.user) {
+            await loadUserProfile(newSession.user);
+          } else {
+            setIsLoading(false);
+          }
         }
       }
     );
 
-    // Verificar sessão existente
-    checkSession();
+    // Verificar sessão existente DEPOIS
+    checkInitialSession();
 
     return () => {
       console.log('useAuth: Limpando subscription');
@@ -50,9 +60,9 @@ export const useAuth = () => {
     };
   }, []);
 
-  const checkSession = async () => {
+  const checkInitialSession = async () => {
     try {
-      console.log('useAuth: Verificando sessão existente...');
+      console.log('useAuth: Verificando sessão inicial...');
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -61,17 +71,15 @@ export const useAuth = () => {
         return;
       }
 
-      setSession(currentSession);
+      console.log('useAuth: Sessão inicial encontrada:', currentSession?.user?.email || 'nenhuma');
       
-      if (currentSession?.user) {
-        console.log('useAuth: Sessão encontrada para:', currentSession.user.email);
-        await loadUserProfile(currentSession.user);
-      } else {
-        console.log('useAuth: Nenhuma sessão ativa');
+      // Não precisamos processar aqui pois o onAuthStateChange já vai processar
+      // Só definimos loading como false se não há sessão
+      if (!currentSession) {
         setIsLoading(false);
       }
     } catch (error) {
-      console.error('useAuth: Erro ao verificar sessão:', error);
+      console.error('useAuth: Erro ao verificar sessão inicial:', error);
       setIsLoading(false);
     }
   };
@@ -88,18 +96,22 @@ export const useAuth = () => {
 
       if (error) {
         console.error('useAuth: Erro ao carregar perfil:', error);
+        if (error.code === 'PGRST116') {
+          console.log('useAuth: Perfil não encontrado, usuário provavelmente precisa ser criado');
+        }
         setUser(null);
       } else if (profile) {
-        console.log('useAuth: Perfil carregado:', profile.nome);
+        console.log('useAuth: Perfil carregado com sucesso:', profile.nome);
         setUser(profile);
       } else {
-        console.log('useAuth: Perfil não encontrado');
+        console.log('useAuth: Nenhum perfil encontrado');
         setUser(null);
       }
     } catch (error) {
-      console.error('useAuth: Erro ao carregar perfil:', error);
+      console.error('useAuth: Erro inesperado ao carregar perfil:', error);
       setUser(null);
     } finally {
+      console.log('useAuth: Finalizando carregamento do perfil');
       setIsLoading(false);
     }
   };
@@ -107,6 +119,7 @@ export const useAuth = () => {
   const signUp = async (email: string, password: string, nome: string) => {
     try {
       console.log('useAuth: Iniciando cadastro para:', email);
+      setIsLoading(true);
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -135,12 +148,15 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('useAuth: Erro no cadastro:', error);
       return { data: null, error };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
       console.log('useAuth: Iniciando login para:', email);
+      setIsLoading(true);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -163,12 +179,15 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('useAuth: Erro no login:', error);
       return { data: null, error };
+    } finally {
+      // Não definir loading como false aqui, deixar o onAuthStateChange fazer isso
     }
   };
 
   const signOut = async () => {
     try {
       console.log('useAuth: Iniciando logout');
+      setIsLoading(true);
       
       const { error } = await supabase.auth.signOut();
       
@@ -178,9 +197,6 @@ export const useAuth = () => {
       }
 
       console.log('useAuth: Logout realizado com sucesso');
-      
-      setUser(null);
-      setSession(null);
       
       toast({
         title: "Logout realizado",
@@ -193,11 +209,14 @@ export const useAuth = () => {
         description: "Ocorreu um erro ao tentar sair.",
         variant: "destructive",
       });
+    } finally {
+      // Não definir loading como false aqui, deixar o onAuthStateChange fazer isso
     }
   };
 
   const refreshProfile = async () => {
     if (session?.user) {
+      setIsLoading(true);
       await loadUserProfile(session.user);
     }
   };
