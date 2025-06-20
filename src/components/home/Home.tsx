@@ -23,9 +23,10 @@ interface User {
 
 interface HomeProps {
   user: User | null;
+  onLogout: () => void;
 }
 
-const Home = ({ user }: HomeProps) => {
+const Home = ({ user, onLogout }: HomeProps) => {
   const { campeonatos, loading: campeonatosLoading } = useCampeonatos();
   
   // Buscar o Campeonato Brasileiro 2025
@@ -62,9 +63,13 @@ const Home = ({ user }: HomeProps) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <HomeHeader 
+        user={user} 
+        brasileiraoId={brasileirao?.id}
+        onLogout={onLogout}
+      />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <HomeHeader user={user} />
-        
         {/* Loading States */}
         <HomeLoadingStates 
           campeonatosLoading={campeonatosLoading}
