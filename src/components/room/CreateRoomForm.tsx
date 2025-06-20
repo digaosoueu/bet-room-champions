@@ -43,7 +43,6 @@ const CreateRoomForm = ({ onBack, onCreateRoom }: CreateRoomFormProps) => {
       const newRoom = await createSala(
         formData.nome,
         formData.tipo,
-        formData.valor_aposta,
         parseInt(formData.campeonato_id)
       );
 
