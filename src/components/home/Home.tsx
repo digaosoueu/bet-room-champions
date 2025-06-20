@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import BrasileiroRoundCarousel from '@/components/round/BrasileiroRoundCarousel';
@@ -118,6 +117,7 @@ const Home = ({ user, onLogout }: HomeProps) => {
                   getTotalApostasExtrasRodada={getTotalApostasExtrasRodada}
                   onBet={handleBet}
                   initialRoundIndex={currentRoundIndex}
+                  user={user}
                 />
               </div>
             )}

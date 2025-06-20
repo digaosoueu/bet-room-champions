@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,13 @@ interface Rodada {
   jogos: Game[];
 }
 
+interface User {
+  id: number;
+  nome: string;
+  email: string;
+  creditos: number;
+}
+
 interface BrasileiroRoundCarouselProps {
   rodadas: Rodada[];
   configuracoes: Record<string, string>;
@@ -29,6 +35,7 @@ interface BrasileiroRoundCarouselProps {
   getTotalApostasExtrasRodada: (gameId: number) => number;
   onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => Promise<void>;
   initialRoundIndex?: number;
+  user: User | null;
 }
 
 const BrasileiroRoundCarousel = ({ 
@@ -37,7 +44,8 @@ const BrasileiroRoundCarousel = ({
   getUserApostasCount, 
   getTotalApostasExtrasRodada,
   onBet, 
-  initialRoundIndex = 0 
+  initialRoundIndex = 0,
+  user
 }: BrasileiroRoundCarouselProps) => {
   const [currentRoundIndex, setCurrentRoundIndex] = useState(initialRoundIndex);
 
@@ -115,6 +123,7 @@ const BrasileiroRoundCarousel = ({
             getUserApostasCount={getUserApostasCount}
             getTotalApostasExtrasRodada={getTotalApostasExtrasRodada}
             onBet={onBet}
+            user={user}
           />
         ))}
       </div>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Coins, Clock, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import LoginPrompt from '@/components/auth/LoginPrompt';
 
 interface Game {
   id: number;
@@ -23,12 +23,14 @@ interface GameBetCardProps {
   getUserApostasCount: (gameId: number) => number;
   getTotalApostasExtrasRodada: (gameId: number) => number;
   onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => Promise<void>;
+  user: any; // Adicionar prop user
 }
 
-const GameBetCard = ({ game, configuracoes, getUserApostasCount, getTotalApostasExtrasRodada, onBet }: GameBetCardProps) => {
+const GameBetCard = ({ game, configuracoes, getUserApostasCount, getTotalApostasExtrasRodada, onBet, user }: GameBetCardProps) => {
   const [placar1, setPlacar1] = useState<number>(0);
   const [placar2, setPlacar2] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const { toast } = useToast();
 
   const apostasExistentes = getUserApostasCount(game.id);
@@ -72,6 +74,12 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, getTotalApostas
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Verificar se usuário está logado
+    if (!user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    
     if (!canMakeMoreBets()) {
       toast({
         title: "Não é possível apostar",
@@ -107,105 +115,112 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, getTotalApostas
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-bold text-center">
-          {game.time1} vs {game.time2}
-        </CardTitle>
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Clock className="h-4 w-4" />
-          <span>{dataJogo.toLocaleDateString('pt-BR')} às {dataJogo.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-        {horasParaJogo > 0 && horasParaJogo < 24 && (
-          <Badge variant="secondary" className="mx-auto">
-            {horasParaJogo}h restantes
-          </Badge>
-        )}
-      </CardHeader>
-      
-      <CardContent>
-        {/* Status das apostas */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Apostas:</span>
-            <Badge variant="secondary">{apostasExistentes}/3</Badge>
+    <>
+      <Card className="w-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-bold text-center">
+            {game.time1} vs {game.time2}
+          </CardTitle>
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Clock className="h-4 w-4" />
+            <span>{dataJogo.toLocaleDateString('pt-BR')} às {dataJogo.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
-          {!jogoJaAconteceu && canMakeMoreBets() && (
+          {horasParaJogo > 0 && horasParaJogo < 24 && (
+            <Badge variant="secondary" className="mx-auto">
+              {horasParaJogo}h restantes
+            </Badge>
+          )}
+        </CardHeader>
+        
+        <CardContent>
+          {/* Status das apostas */}
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <Coins className="h-4 w-4 text-emerald-600" />
-              <span className="text-sm font-medium">
-                {getCustoAposta() === 0 ? 'Grátis' : `${getCustoAposta()} créditos`}
-              </span>
+              <span className="text-sm text-gray-600">Apostas:</span>
+              <Badge variant="secondary">{apostasExistentes}/3</Badge>
+            </div>
+            {!jogoJaAconteceu && canMakeMoreBets() && (
+              <div className="flex items-center space-x-2">
+                <Coins className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-medium">
+                  {getCustoAposta() === 0 ? 'Grátis' : `${getCustoAposta()} créditos`}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Informação sobre apostas extras na rodada */}
+          {apostasExistentes > 0 && (
+            <div className="mb-4 p-2 bg-blue-50 rounded-lg">
+              <p className="text-xs text-blue-700">
+                Apostas extras na rodada: {apostasExtrasRodada}/10
+              </p>
             </div>
           )}
-        </div>
 
-        {/* Informação sobre apostas extras na rodada */}
-        {apostasExistentes > 0 && (
-          <div className="mb-4 p-2 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-700">
-              Apostas extras na rodada: {apostasExtrasRodada}/10
-            </p>
-          </div>
-        )}
-
-        {!canMakeMoreBets() ? (
-          <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
-            <Lock className="h-6 w-6 mx-auto mb-2" />
-            <p className="font-medium">Apostas bloqueadas</p>
-            <p className="text-sm">{getMotivoBloqueio()}</p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4 items-end">
-              <div className="space-y-2">
-                <Label htmlFor={`placar1-${game.id}`}>{game.time1}</Label>
-                <Input
-                  id={`placar1-${game.id}`}
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={placar1}
-                  onChange={(e) => setPlacar1(Number(e.target.value))}
-                  className="text-center text-lg font-bold"
-                  required
-                />
-              </div>
-              
-              <div className="text-center">
-                <span className="text-2xl font-bold text-gray-400">×</span>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor={`placar2-${game.id}`}>{game.time2}</Label>
-                <Input
-                  id={`placar2-${game.id}`}
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={placar2}
-                  onChange={(e) => setPlacar2(Number(e.target.value))}
-                  className="text-center text-lg font-bold"
-                  required
-                />
-              </div>
+          {!canMakeMoreBets() ? (
+            <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
+              <Lock className="h-6 w-6 mx-auto mb-2" />
+              <p className="font-medium">Apostas bloqueadas</p>
+              <p className="text-sm">{getMotivoBloqueio()}</p>
             </div>
-            
-            <Button
-              type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
-              disabled={loading}
-            >
-              <Coins className="h-4 w-4 mr-2" />
-              {loading ? 'Apostando...' : 
-                getCustoAposta() === 0 ? 'Apostar (Grátis)' : 
-                `Apostar (${getCustoAposta()} créditos)`
-              }
-            </Button>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-3 gap-4 items-end">
+                <div className="space-y-2">
+                  <Label htmlFor={`placar1-${game.id}`}>{game.time1}</Label>
+                  <Input
+                    id={`placar1-${game.id}`}
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={placar1}
+                    onChange={(e) => setPlacar1(Number(e.target.value))}
+                    className="text-center text-lg font-bold"
+                    required
+                  />
+                </div>
+                
+                <div className="text-center">
+                  <span className="text-2xl font-bold text-gray-400">×</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor={`placar2-${game.id}`}>{game.time2}</Label>
+                  <Input
+                    id={`placar2-${game.id}`}
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={placar2}
+                    onChange={(e) => setPlacar2(Number(e.target.value))}
+                    className="text-center text-lg font-bold"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                disabled={loading}
+              >
+                <Coins className="h-4 w-4 mr-2" />
+                {loading ? 'Apostando...' : 
+                  getCustoAposta() === 0 ? 'Apostar (Grátis)' : 
+                  `Apostar (${getCustoAposta()} créditos)`
+                }
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal de Login */}
+      {showLoginPrompt && (
+        <LoginPrompt onClose={() => setShowLoginPrompt(false)} />
+      )}
+    </>
   );
 };
 
