@@ -33,7 +33,7 @@ const GameBetCard = ({ game, configuracoes, getUserApostasCount, onBet }: GameBe
   const apostasExistentes = getUserApostasCount(game.id);
   const dataJogo = new Date(game.data_jogo);
   const agora = new Date();
-  const jogoJaAconteceu = dataJogo < agora;
+  const jogoJaAconteceu = agora.getTime() > dataJogo.getTime() - 5 * 60 * 1000;;
   const tempoParaJogo = dataJogo.getTime() - agora.getTime();
   const horasParaJogo = Math.floor(tempoParaJogo / (1000 * 60 * 60));
 
