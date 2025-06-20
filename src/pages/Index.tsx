@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import AuthPage from '@/components/auth/AuthPage';
 import Home from '@/components/home/Home';
+import { Loader2 } from 'lucide-react';
 
 const Index = () => {
   const { user, isLoading, signOut } = useAuth();
@@ -11,14 +11,14 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl font-bold text-emerald-600 mb-2">Carregando...</div>
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto mb-4" />
+          <div className="text-xl font-semibold text-gray-900 mb-2">Carregando...</div>
           <div className="text-gray-600">Verificando autenticação</div>
         </div>
       </div>
     );
   }
 
-  // Sempre mostrar a Home, mas com funcionalidades limitadas se não estiver logado
   return <Home user={user} onLogout={signOut} />;
 };
 

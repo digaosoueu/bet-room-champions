@@ -54,10 +54,11 @@ const HomeBettingLogic = ({
     }
 
     try {
-      console.log('Iniciando aposta:', { gameId, placar1, placar2, creditos, salaGeral });
+      console.log('Iniciando aposta:', { gameId, placar1, placar2, creditos, salaGeral, userCredits: user.creditos });
 
       // Verificar apostas existentes no jogo
       const apostasNoJogo = getUserApostasCount(gameId);
+      console.log('Apostas existentes no jogo:', apostasNoJogo);
       
       // Regra: máximo 3 apostas por jogo
       if (apostasNoJogo >= 3) {
@@ -79,6 +80,8 @@ const HomeBettingLogic = ({
         custoReal = 150; // 3ª aposta - 150 créditos
       }
 
+      console.log('Custo da aposta:', custoReal);
+
       // Verificar se usuário tem créditos suficientes (apenas para apostas pagas)
       if (custoReal > 0 && user.creditos < custoReal) {
         toast({
@@ -92,6 +95,8 @@ const HomeBettingLogic = ({
       // Verificar limite de apostas extras na rodada (apenas para 2ª e 3ª apostas)
       if (custoReal > 0) {
         const apostasExtrasRodada = getTotalApostasExtrasRodada(gameId);
+        console.log('Apostas extras na rodada:', apostasExtrasRodada);
+        
         if (apostasExtrasRodada >= 10) {
           toast({
             title: "Limite atingido",
@@ -118,6 +123,8 @@ const HomeBettingLogic = ({
         }
       }
 
+      console.log('Criando aposta no banco...');
+
       // Criar a aposta
       await createAposta({
         jogo_id: gameId,
@@ -127,17 +134,21 @@ const HomeBettingLogic = ({
         creditos_apostados: custoReal
       });
 
+      console.log('Aposta criada, debitando créditos se necessário...');
+
       // Debitar créditos se for aposta paga
       if (custoReal > 0) {
-        const { error } = await supabase
+        const { error: creditError } = await supabase
           .from('usuarios')
           .update({ creditos: user.creditos - custoReal })
           .eq('id', user.id);
 
-        if (error) {
-          console.error('Erro ao debitar créditos:', error);
+        if (creditError) {
+          console.error('Erro ao debitar créditos:', creditError);
           throw new Error('Erro ao debitar créditos');
         }
+
+        console.log('Créditos debitados com sucesso');
       }
 
       const tipoAposta = custoReal === 0 ? "gratuita" : `custou ${custoReal} créditos`;
@@ -145,6 +156,8 @@ const HomeBettingLogic = ({
         title: "Aposta realizada!",
         description: `Aposta de ${placar1} x ${placar2} registrada (${tipoAposta})`,
       });
+
+      console.log('Aposta finalizada com sucesso');
 
       // Recarregar apostas
       refetchApostas();
@@ -160,7 +173,8 @@ const HomeBettingLogic = ({
   };
 
   const getUserApostasCount = (gameId: number) => {
-    return apostas.filter(aposta => aposta.jogo_id === gameId).length;
+    if (!user) return 0;
+    return apostas.filter(aposta => aposta.jogo_id === gameId && aposta.usuario_id === user.id).length;
   };
 
   const getTotalApostasExtrasRodada = (gameId: number) => {
@@ -171,7 +185,9 @@ const HomeBettingLogic = ({
     // Contar apostas extras (que custaram créditos) em todos os jogos da rodada
     const jogosRodada = rodadaAtual.jogos.map(j => j.id);
     return apostas.filter(aposta => 
-      jogosRodada.includes(aposta.jogo_id) && aposta.creditos_apostados > 0
+      jogosRodada.includes(aposta.jogo_id) && 
+      aposta.creditos_apostados > 0 &&
+      aposta.usuario_id === user?.id
     ).length;
   };
 
