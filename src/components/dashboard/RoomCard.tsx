@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Coins, Trophy } from 'lucide-react';
 
 interface Room {
-  id: string;
+  id: number;
   nome: string;
   tipo: 'geral' | 'publica' | 'privada';
   valor_aposta: number;
@@ -18,7 +18,7 @@ interface Room {
 
 interface RoomCardProps {
   room: Room;
-  onEnterRoom: (roomId: string) => void;
+  onEnterRoom: (roomId: number) => void;
 }
 
 const RoomCard = ({ room, onEnterRoom }: RoomCardProps) => {

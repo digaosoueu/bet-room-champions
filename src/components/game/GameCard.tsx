@@ -8,7 +8,7 @@ import { Coins, Calendar, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface Game {
-  id: string;
+  id: number;
   time1: string;
   time2: string;
   data_jogo: string;
@@ -19,7 +19,7 @@ interface Game {
 interface GameCardProps {
   game: Game;
   valorAposta: number;
-  onBet: (gameId: string, placar1: number, placar2: number, creditos: number) => void;
+  onBet: (gameId: number, placar1: number, placar2: number, creditos: number) => void;
 }
 
 const GameCard = ({ game, valorAposta, onBet }: GameCardProps) => {
