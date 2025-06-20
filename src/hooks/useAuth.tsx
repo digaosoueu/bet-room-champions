@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -19,18 +20,24 @@ export const useAuth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('useAuth: Iniciando verificação de autenticação');
+    
     // Verificar se já existe um usuário logado
     getCurrentUser();
 
     // Ouvir mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('useAuth: Auth state change:', event, session?.user?.email);
+        
         if (event === 'SIGNED_IN' && session) {
           await getCurrentUser();
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
+          setIsLoading(false);
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('useAuth: Token refreshed');
         }
-        setIsLoading(false);
       }
     );
 
@@ -39,25 +46,49 @@ export const useAuth = () => {
 
   const getCurrentUser = async () => {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log('useAuth: Buscando usuário atual...');
+      setIsLoading(true);
       
-      if (authUser) {
-        // Buscar perfil do usuário na tabela usuarios
-        const { data: profile, error } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('auth_user_id', authUser.id)
-          .single();
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('useAuth: Erro ao buscar auth user:', authError);
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!authUser) {
+        console.log('useAuth: Nenhum usuário autenticado');
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
 
-        if (error) {
-          console.error('Erro ao buscar perfil:', error);
-        } else if (profile) {
-          setUser(profile);
-        }
+      console.log('useAuth: Usuário autenticado encontrado:', authUser.email);
+
+      // Buscar perfil do usuário na tabela usuarios
+      const { data: profile, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .single();
+
+      if (error) {
+        console.error('useAuth: Erro ao buscar perfil:', error);
+        setUser(null);
+      } else if (profile) {
+        console.log('useAuth: Perfil encontrado:', profile.nome);
+        setUser(profile);
+      } else {
+        console.log('useAuth: Perfil não encontrado para o usuário');
+        setUser(null);
       }
     } catch (error) {
-      console.error('Erro ao obter usuário atual:', error);
+      console.error('useAuth: Erro geral ao obter usuário atual:', error);
+      setUser(null);
     } finally {
+      console.log('useAuth: Finalizando getCurrentUser, setting loading to false');
       setIsLoading(false);
     }
   };
