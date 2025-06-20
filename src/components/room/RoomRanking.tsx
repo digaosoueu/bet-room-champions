@@ -12,7 +12,7 @@ interface RankingEntry {
 }
 
 interface RoomRankingProps {
-  roomId: string;
+  roomId: number;
 }
 
 const RoomRanking = ({ roomId }: RoomRankingProps) => {
