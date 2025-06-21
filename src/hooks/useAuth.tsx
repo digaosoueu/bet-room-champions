@@ -29,8 +29,10 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('useAuth: Iniciando sistema de autenticação');
     
+    // Primeiro, configurar o listener de mudanças de estado
     const { data: { subscription } } = authService.onAuthStateChange(handleAuthStateChange);
 
+    // Depois, verificar se já existe uma sessão
     checkInitialSession();
 
     return () => {

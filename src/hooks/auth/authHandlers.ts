@@ -33,6 +33,9 @@ export const useAuthHandlers = (
       } else {
         updateLoading(false);
       }
+    } else {
+      // Para qualquer outro evento sem sessão, finalizar loading
+      updateLoading(false);
     }
   };
 
@@ -51,6 +54,7 @@ export const useAuthHandlers = (
 
   const checkInitialSession = async () => {
     try {
+      console.log('authHandlers: Verificando sessão inicial...');
       const { data: { session: currentSession }, error } = await authService.getSession();
       
       if (error) {
@@ -61,7 +65,14 @@ export const useAuthHandlers = (
 
       console.log('authHandlers: Sessão inicial encontrada:', currentSession?.user?.email || 'nenhuma');
       
-      if (!currentSession) {
+      // Atualizar o estado da sessão imediatamente
+      updateSession(currentSession);
+      
+      if (currentSession?.user) {
+        console.log('authHandlers: Carregando perfil do usuário da sessão inicial...');
+        await loadUserProfile(currentSession.user);
+      } else {
+        console.log('authHandlers: Nenhuma sessão ativa encontrada');
         updateLoading(false);
       }
     } catch (error) {

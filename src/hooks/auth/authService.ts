@@ -11,13 +11,10 @@ export const authService = {
       .from('usuarios')
       .select('*')
       .eq('auth_user_id', authUser.id)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('authService: Erro ao carregar perfil:', error);
-      if (error.code === 'PGRST116') {
-        console.log('authService: Perfil não encontrado, usuário provavelmente precisa ser criado');
-      }
       return null;
     }
 
@@ -44,7 +41,9 @@ export const authService = {
       }
     });
 
-    console.log('authService: Cadastro realizado com sucesso');
+    if (!error) {
+      console.log('authService: Cadastro realizado com sucesso');
+    }
     return { data, error };
   },
 
@@ -56,7 +55,9 @@ export const authService = {
       password,
     });
 
-    console.log('authService: Login realizado com sucesso');
+    if (!error) {
+      console.log('authService: Login realizado com sucesso');
+    }
     return { data, error };
   },
 
@@ -73,11 +74,24 @@ export const authService = {
   },
 
   async getSession() {
-    console.log('authService: Verificando sessão inicial...');
-    return await supabase.auth.getSession();
+    console.log('authService: Verificando sessão atual...');
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      console.log('authService: Resultado getSession:', { 
+        hasSession: !!data.session, 
+        hasUser: !!data.session?.user,
+        userEmail: data.session?.user?.email,
+        error 
+      });
+      return { data, error };
+    } catch (error) {
+      console.error('authService: Erro ao buscar sessão:', error);
+      return { data: { session: null }, error };
+    }
   },
 
   onAuthStateChange(callback: (event: string, session: any) => void) {
+    console.log('authService: Configurando listener de mudanças de autenticação');
     return supabase.auth.onAuthStateChange(callback);
   }
 };
