@@ -33,9 +33,9 @@ export const useGeneralRoom = (campeonatoId?: number) => {
         .eq('campeonato_id', campeonatoId)
         .eq('dono_id', 0)
         .eq('tipo', 'publica')
-        .single();
+        .maybeSingle();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
+      if (fetchError) {
         console.error('useGeneralRoom: Erro ao buscar sala geral:', fetchError);
         setSalaGeral(null);
         return;
